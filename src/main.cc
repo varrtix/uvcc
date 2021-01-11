@@ -1,7 +1,9 @@
 #include <iostream>
 
-#include "event-loop.h"
-#include "version.h"
+//#include "event-loop.h"
+//#include "version.h"
+#include <uvcc/event-loop.h>
+#include <uvcc/version.h>
 
 int main() {
   std::cout << "libuv version: " << uvcc::Version::description() << std::endl;

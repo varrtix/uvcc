@@ -14,11 +14,8 @@ pkg_check_modules(uv
 )
 
 add_executable(${PROJECT_NAME}
-    utilities.h
-    exception.h
-    version.h
-    event-loop.h
-    main.cc
+    src/main.cc
 )
 
+target_include_directories(${PROJECT_NAME} PRIVATE "include")
 target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::uv)
