@@ -13,10 +13,12 @@ namespace uvcc {
 
 class EventLoop {
  public:
-  explicit EventLoop() : context_(uvcc::make_unique<uv_loop_t>()), err_(0) {
-    UV_FUNC_THROWS(uv_loop_init(context_.get()), err_);
+  explicit EventLoop() : context_(uvcc::make_unique<uv_loop_t>()) {
+    //    UV_FUNC_THROWS(uv_loop_init(context_.get()), err_);
+    //    UV_FUNC_FAIL_THROWS(uv_loop_init(context_.get()), err_);
+    uvcc::uv_expr_throws(uv_loop_init(context_.get()));
   }
-  ~EventLoop() {
+  ~EventLoop() _NOEXCEPT {
     try {
       _close();
     } catch (const uvcc::Exception &exception) {
@@ -81,7 +83,7 @@ class EventLoop {
 
  private:
   std::unique_ptr<uv_loop_t> context_;
-  int err_;
+  //  int err_;
 
   void _close() { UV_FUNC_THROWS(uv_loop_close(context_.get()), err_); }
 };

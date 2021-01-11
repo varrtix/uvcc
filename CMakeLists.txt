@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.14)
 
 project(uvcc LANGUAGES CXX)
 
@@ -15,6 +15,8 @@ pkg_check_modules(uv
 
 add_executable(${PROJECT_NAME}
     src/main.cc
+    include/uvcc/network.h
+    include/uvcc/handle.h
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "include")

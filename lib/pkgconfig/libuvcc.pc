@@ -1,0 +1,12 @@
+prefix=/Users/zzsw/Projects/uvcc
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: uvcc
+Version: 0.1.0
+Description: The high-level API of C++ bindings for libuv.
+URL: https://github.com/varrtix/uvcc/
+
+Cflags: -I${includedir}
+Libs: -L${libdir} -luvcc
