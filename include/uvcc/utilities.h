@@ -3,29 +3,12 @@
 
 #include <uv.h>
 
+#include <iostream>
 #include <memory>
+#include <type_traits>
+#include <utility>
 
 #include "exception.h"
-
-#define UV_FUNC_FAIL(code) ((code) < 0)
-#define UV_FUNC_SUCC(code) ((code) == 0)
-#define UV_FUNC_EXPR_ASSERT(result, flag) \
-  flag ? UV_FUNC_SUCC(result) : UV_FUNC_FAIL(result)
-
-//#define UV_FUNC_EXPR_ASSERT(expr, condi) ((expr)(condi))
-//#define UV_FUNC_ERR_ASSERT(expr, condi, err) ((err = (expr))(condi))
-
-//#define UV_FUNC_THROWS(expr, condi, err) \
-//  if (UV_FUNC_ERR_ASSERT(expr, condi, err)) throw uvcc::Exception(err);
-
-//#define UV_FUNC_FAIL_ASSERT(expr) UV_FUNC_EXPR_ASSERT(expr,
-// UV_FUNC_FAIL_CONDI) #define UV_FUNC_SUCC_ASSERT(expr)
-// UV_FUNC_EXPR_ASSERT(expr, UV_FUNC_SUCC_CONDI)
-
-//#define UV_FUNC_FAIL_THROWS(expr, err) \
-//  UV_FUNC_THROWS(expr, UV_FUNC_FAIL_CONDI, err)
-//#define UV_FUNC_SUCC_THROWS(expr, err) \
-//  UV_FUNC_THROWS(expr, UV_FUNC_SUCC_CONDI, err)
 
 namespace uvcc {
 
@@ -34,37 +17,82 @@ std::unique_ptr<T> make_unique(Ts &&...params) {
   return std::unique_ptr<T>(new T(std::forward<Ts>(params)...));
 }
 
-inline static bool uv_expr_assert(const int &err,
-                                  const bool &abs_succeed) _NOEXCEPT {
-  return UV_FUNC_EXPR_ASSERT(err, abs_succeed);
+template <typename EnumType,
+          typename std::enable_if<std::is_enum<EnumType>::value, int>::type = 0>
+constexpr auto enum_cast(const EnumType &enum_case) ->
+    typename std::underlying_type<EnumType>::type {
+  return static_cast<typename std::underlying_type<EnumType>::type>(enum_case);
 }
 
-inline static bool uv_eval_assert(const int &err, const bool &abs_succeed,
-                                  int *res) _NOEXCEPT {
-  if (res == nullptr) return false;
-  *res = err;
-  return uv_expr_assert(err, abs_succeed);
+template <
+    typename Success, typename Failure,
+    typename std::enable_if<std::is_same<std::exception, Failure>::value ||
+                                std::is_base_of<std::exception, Failure>::value,
+                            int>::type = 0>
+class Result {
+ public:
+  enum class Type : bool {
+    kSuccess = true,
+    kFailure = false,
+  };
+
+  explicit Result(std::function<Success()> &&catching_body) _NOEXCEPT {
+    try {
+      success_ = uvcc::make_unique<Success>(catching_body());
+      type_ = Type::kSuccess;
+    } catch (const Failure &failure) {
+      failure_ = uvcc::make_unique<Failure>(failure);
+    }
+  }
+
+  inline bool as(const Result::Type &type) const _NOEXCEPT {
+    return type == type_;
+  }
+
+  inline bool asSuccess() const _NOEXCEPT { return uvcc::enum_cast(type_); }
+
+  inline bool asFailure() const _NOEXCEPT { return !uvcc::enum_cast(type_); }
+
+  const std::unique_ptr<Success> &success() const _NOEXCEPT { return success_; }
+
+  const std::unique_ptr<Failure> &failure() const _NOEXCEPT { return failure_; }
+
+ private:
+  std::unique_ptr<Success> success_ = nullptr;
+  std::unique_ptr<Failure> failure_ = nullptr;
+
+  Result::Type type_ = Type::kFailure;
+};
+
+inline bool expr_assert(const int &err, const bool &abs = false) _NOEXCEPT {
+  return abs ? (err == 0) : (err < 0);
 }
 
-inline static void uv_expr_throws(const int &err) {
-  if (uv_expr_assert(err, false)) throw uvcc::Exception(err);
+inline void expr_cerr(const uvcc::Exception &exception) _NOEXCEPT {
+  std::cerr << exception.what() << std::endl;
 }
 
-enum LoopOption {
+inline bool expr_cerr(const int &err, const bool &abs = false) _NOEXCEPT {
+  if (expr_assert(err, abs)) return true;
+  expr_cerr(uvcc::Exception(err));
+  return false;
+}
+
+inline void expr_throws(const int &err, const bool &abs = false) {
+  if (!expr_assert(err, abs)) throw uvcc::Exception(err);
+}
+
+enum class LoopOption : int {
   kBlockSignal = UV_LOOP_BLOCK_SIGNAL,
   kMetricsIDLETime = UV_METRICS_IDLE_TIME,
 };
 
-enum RunOption {
+enum class RunOption : int {
   kDefault = UV_RUN_DEFAULT,
   kOnce = UV_RUN_ONCE,
   kNoWait = UV_RUN_NOWAIT,
 };
 
 }  // namespace uvcc
-
-#undef UV_FUNC_FAIL
-#undef UV_FUNC_SUCC
-#undef UV_FUNC_EXPR_ASSERT
 
 #endif  // UTILITIES_H

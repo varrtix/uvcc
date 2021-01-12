@@ -14,33 +14,27 @@ namespace uvcc {
 class EventLoop {
  public:
   explicit EventLoop() : context_(uvcc::make_unique<uv_loop_t>()) {
-    //    UV_FUNC_THROWS(uv_loop_init(context_.get()), err_);
-    //    UV_FUNC_FAIL_THROWS(uv_loop_init(context_.get()), err_);
-    uvcc::uv_expr_throws(uv_loop_init(context_.get()));
+    uvcc::expr_throws(uv_loop_init(context_.get()));
   }
   ~EventLoop() _NOEXCEPT {
     try {
       _close();
     } catch (const uvcc::Exception &exception) {
-      std::cerr << exception.what() << std::endl;
+      uvcc::expr_cerr(exception);
     }
   }
 
   bool configure(const uvcc::LoopOption &option) _NOEXCEPT {
-    if (UV_FUNC_SUCC_ASSERT(
-            err_ = uv_loop_configure(context_.get(), uv_loop_option(option))))
-      return true;
-
-    std::cerr << uvcc::Exception(err_).what() << std::endl;
-    return false;
+    return uvcc::expr_cerr(
+        uv_loop_configure(context_.get(), uv_loop_option(option)), true);
   }
 
   void run(const uvcc::RunOption &option) {
-    UV_FUNC_THROWS(uv_run(context_.get(), uv_run_mode(option)), err_);
+    uvcc::expr_throws(uv_run(context_.get(), uv_run_mode(option)));
   }
 
   bool isAlive() const _NOEXCEPT {
-    return !UV_FUNC_SUCC_ASSERT(uv_loop_alive(context_.get()));
+    return uvcc::expr_assert(uv_loop_alive(context_.get()), true);
   }
 
   void stop() _NOEXCEPT { uv_stop(context_.get()); }
@@ -62,7 +56,7 @@ class EventLoop {
     return *this;
   }
 
-  void fork() { UV_FUNC_THROWS(uv_loop_fork(context_.get()), err_); }
+  void fork() { uvcc::expr_throws(uv_loop_fork(context_.get())); }
 
   template <typename T>
   std::shared_ptr<T> data() const _NOEXCEPT {
@@ -83,9 +77,8 @@ class EventLoop {
 
  private:
   std::unique_ptr<uv_loop_t> context_;
-  //  int err_;
 
-  void _close() { UV_FUNC_THROWS(uv_loop_close(context_.get()), err_); }
+  void _close() { uvcc::expr_throws(uv_loop_close(context_.get())); }
 };
 
 }  // namespace uvcc
