@@ -1,6 +1,6 @@
 /// MIT License
 ///
-/// uvcc/utilities.h
+/// uvcc/event-loop.h
 /// uvcc
 ///
 /// created by varrtix on 2021/01/10.
@@ -42,6 +42,10 @@ class EventLoop {
   explicit EventLoop() : context_(uvcc::make_unique<uv_loop_t>()) {
     uvcc::expr_throws(uv_loop_init(context_.get()));
   }
+
+  explicit EventLoop(uv_loop_t &&loop) _NOEXCEPT
+      : context_(uvcc::make_unique<uv_loop_t>(std::move(loop))) {}
+
   ~EventLoop() _NOEXCEPT {
     try {
       _close();
@@ -51,7 +55,7 @@ class EventLoop {
   }
 
   bool configure(const uvcc::LoopOption &option) _NOEXCEPT {
-    return uvcc::expr_cerr(
+    return uvcc::expr_cerr_r(
         uv_loop_configure(context_.get(), uv_loop_option(option)), true);
   }
 

@@ -98,7 +98,7 @@ inline void expr_cerr(const uvcc::Exception &exception) _NOEXCEPT {
   std::cerr << exception.what() << std::endl;
 }
 
-inline bool expr_cerr(const int &err, const bool &abs = false) _NOEXCEPT {
+inline bool expr_cerr_r(const int &err, const bool &abs = false) _NOEXCEPT {
   if (expr_assert(err, abs)) return true;
   expr_cerr(uvcc::Exception(err));
   return false;

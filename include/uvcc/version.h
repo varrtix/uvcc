@@ -1,6 +1,6 @@
 /// MIT License
 ///
-/// uvcc/utilities.h
+/// uvcc/version.h
 /// uvcc
 ///
 /// created by varrtix on 2021/01/10.
