@@ -89,17 +89,17 @@ class EventLoop {
   void fork() { uvcc::expr_throws(uv_loop_fork(context_.get())); }
 
   template <typename T>
-  std::shared_ptr<T> data() const _NOEXCEPT {
+  const std::unique_ptr<const T> data() const _NOEXCEPT {
     return uv_loop_get_data(context_.get());
   }
 
   template <typename T>
-  std::shared_ptr<T> setData(std::unique_ptr<T> data) _NOEXCEPT {
-    return uv_loop_set_data(context_.get(), data.get());
+  std::unique_ptr<const T> setData(std::unique_ptr<T> data) _NOEXCEPT {
+    return uv_loop_set_data(context_.get(), data);
   }
 
-  static std::shared_ptr<EventLoop> standard() {
-    return std::make_shared<EventLoop>();
+  static const std::shared_ptr<const EventLoop> standard() _NOEXCEPT {
+    return std::make_shared<const EventLoop>();
   }
 
  protected:

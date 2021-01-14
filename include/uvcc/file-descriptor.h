@@ -32,6 +32,7 @@
 #include <uvcc/utilities.h>
 
 #include <memory>
+#include <string>
 
 namespace uvcc {
 
@@ -98,8 +99,24 @@ class FileDescriptor {
     return uv_handle_size(_someHandle()->type);
   }
 
-  std::shared_ptr<const EventLoop> loop() _NOEXCEPT {
-    return std::make_shared<const EventLoop>(_someHandle()->loop);
+  const std::unique_ptr<const EventLoop> loop() _NOEXCEPT {
+    return uvcc::make_unique<const EventLoop>(_someHandle()->loop);
+  }
+
+  template <typename T>
+  const std::unique_ptr<const T> data() const _NOEXCEPT {
+    return uv_handle_get_data(_someHandle());
+  }
+
+  template <typename T>
+  std::unique_ptr<const T> setData(std::unique_ptr<T> data) _NOEXCEPT {
+    return uv_handle_set_data(_someHandle(), data);
+  }
+
+  virtual const Type &type() const _NOEXCEPT { return fd_type_; }
+
+  virtual const std::string typeName() const _NOEXCEPT {
+    return std::string(uv_handle_type_name(_someHandle()->type));
   }
 
  protected:
