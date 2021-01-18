@@ -37,15 +37,15 @@
 
 namespace uvcc {
 
-class EventLoop {
+class EventLoop : protected BaseObject<uv_loop_t> {
  public:
-  explicit EventLoop() : context_(uvcc::make_unique<uv_loop_t>()) {
-    uvcc::expr_throws(uv_loop_init(context_.get()));
+  EventLoop() : BaseObject<Self>() {
+    uvcc::expr_throws(uv_loop_init(raw_.get()));
   }
-
-  explicit EventLoop(uv_loop_t &&loop) _NOEXCEPT
-      : context_(uvcc::make_unique<uv_loop_t>(std::move(loop))) {}
-
+  EventLoop(const Self &self) : BaseObject<Self>(self) {}
+  EventLoop(Self &&self) _NOEXCEPT : BaseObject<Self>(self) {}
+  EventLoop(EventLoop &&) _NOEXCEPT = default;
+  EventLoop &operator=(EventLoop &&) _NOEXCEPT = default;
   ~EventLoop() _NOEXCEPT {
     try {
       _close();
@@ -56,59 +56,57 @@ class EventLoop {
 
   bool configure(const uvcc::LoopOption &option) _NOEXCEPT {
     return uvcc::expr_cerr_r(
-        uv_loop_configure(context_.get(), uv_loop_option(option)), true);
+        uv_loop_configure(raw_.get(), uv_loop_option(option)), true);
   }
 
   void run(const uvcc::RunOption &option) {
-    uvcc::expr_throws(uv_run(context_.get(), uv_run_mode(option)));
+    uvcc::expr_throws(uv_run(raw_.get(), uv_run_mode(option)));
   }
 
   bool isAlive() const _NOEXCEPT {
-    return uvcc::expr_assert(uv_loop_alive(context_.get()), true);
+    return uvcc::expr_assert(uv_loop_alive(raw_.get()), true);
   }
 
-  void stop() _NOEXCEPT { uv_stop(context_.get()); }
+  void stop() _NOEXCEPT { uv_stop(raw_.get()); }
 
-  int fd() const _NOEXCEPT { return uv_backend_fd(context_.get()); }
+  int fd() const _NOEXCEPT { return uv_backend_fd(raw_.get()); }
 
-  int timeout() const _NOEXCEPT { return uv_backend_timeout(context_.get()); }
+  int timeout() const _NOEXCEPT { return uv_backend_timeout(raw_.get()); }
 
-  std::uint64_t now() const _NOEXCEPT { return uv_now(context_.get()); }
+  std::uint64_t now() const _NOEXCEPT { return uv_now(raw_.get()); }
 
-  void updateTime() _NOEXCEPT { uv_update_time(context_.get()); }
+  void updateTime() _NOEXCEPT { uv_update_time(raw_.get()); }
 
   template <typename T>
   EventLoop &map(
       std::unique_ptr<T> arg,
       const std::function<void(uv_handle_t *, void *)> &callback) _NOEXCEPT {
     uv_walk_cb callback_ptr = callback.target<void(uv_handle_t *, void *)>();
-    uv_walk(context_.get(), callback_ptr, arg.get());
+    uv_walk(raw_.get(), callback_ptr, arg.get());
     return *this;
   }
 
-  void fork() { uvcc::expr_throws(uv_loop_fork(context_.get())); }
+  void fork() { uvcc::expr_throws(uv_loop_fork(raw_.get())); }
 
   template <typename T>
   const std::unique_ptr<const T> data() const _NOEXCEPT {
-    return uv_loop_get_data(context_.get());
+    return uv_loop_get_data(raw_.get());
   }
 
   template <typename T>
   std::unique_ptr<const T> setData(std::unique_ptr<T> data) _NOEXCEPT {
-    return uv_loop_set_data(context_.get(), data);
+    return uv_loop_set_data(raw_.get(), data);
   }
 
   static const std::shared_ptr<const EventLoop> standard() _NOEXCEPT {
-    return std::make_shared<const EventLoop>();
+    return std::make_shared<const EventLoop>(std::move(*uv_default_loop()));
   }
 
  protected:
   static std::size_t _loopSize() _NOEXCEPT { return uv_loop_size(); }
 
  private:
-  std::unique_ptr<uv_loop_t> context_;
-
-  void _close() { uvcc::expr_throws(uv_loop_close(context_.get())); }
+  void _close() { uvcc::expr_throws(uv_loop_close(raw_.get())); }
 };
 
 }  // namespace uvcc

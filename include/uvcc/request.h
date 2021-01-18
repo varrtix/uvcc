@@ -1,6 +1,6 @@
 /// MIT License
 ///
-/// uvcc/file-desciptor.h
+/// uvcc/request.h
 /// uvcc
 ///
 /// created by varrtix on 2021/01/13.

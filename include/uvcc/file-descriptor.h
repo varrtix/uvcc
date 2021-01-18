@@ -28,19 +28,18 @@
 #define FILEDESCRIPTOR_H
 
 #include <uv.h>
-#include <uvcc/event-loop.h>
-#include <uvcc/utilities.h>
 
 #include <memory>
 #include <string>
 
+#include "event-loop.h"
+#include "utilities.h"
+
 namespace uvcc {
 
-class FileDescriptor {
+class FileDescriptor : protected BaseObject<uv_any_handle> {
  public:
-  using Storage = uv_any_handle;
-
-  enum class Type : int {
+  enum class TransmitType : int {
     kDefault = UV_HANDLE,
     kUnknown = UV_UNKNOWN_HANDLE,
     kAsync = UV_ASYNC,
@@ -59,19 +58,24 @@ class FileDescriptor {
   };
 
   explicit FileDescriptor(
-      const Type &type = Type::kDefault,
+      const TransmitType &type = TransmitType::kDefault,
       std::function<void(uv_handle_t *)> &&closing_callback = {}) _NOEXCEPT
       : closing_callback_(std::move(closing_callback)),
         fd_type_(type) {
     switch (fd_type_) {
-      case Type::kUDP:
-        fd_ = uvcc::make_unique<Storage>(uv_udp_t());
-      case Type::kDefault:
+      case TransmitType::kUDP:
+        raw_->udp = uv_udp_t();
+        break;
+      case TransmitType::kDefault:
       default:
-        fd_ = uvcc::make_unique<Storage>(uv_handle_t());
+        raw_->handle = uv_handle_t();
         break;
     }
   }
+  FileDescriptor(const Self &self) : BaseObject<Self>(self) {}
+  FileDescriptor(Self &&self) _NOEXCEPT : BaseObject<Self>(self) {}
+  FileDescriptor(FileDescriptor &&) _NOEXCEPT = default;
+  FileDescriptor &operator=(FileDescriptor &&) _NOEXCEPT = default;
 
   bool isActive() const _NOEXCEPT {
     return !uvcc::expr_assert(uv_is_active(_someHandle()), true);
@@ -100,7 +104,7 @@ class FileDescriptor {
   }
 
   const std::unique_ptr<const EventLoop> loop() _NOEXCEPT {
-    return uvcc::make_unique<const EventLoop>(_someHandle()->loop);
+    return uvcc::make_unique<const EventLoop>(*_someHandle()->loop);
   }
 
   template <typename T>
@@ -113,29 +117,28 @@ class FileDescriptor {
     return uv_handle_set_data(_someHandle(), data);
   }
 
-  virtual const Type &type() const _NOEXCEPT { return fd_type_; }
+  virtual const TransmitType &type() const _NOEXCEPT { return fd_type_; }
 
   virtual const std::string typeName() const _NOEXCEPT {
     return std::string(uv_handle_type_name(_someHandle()->type));
   }
 
  protected:
-  std::unique_ptr<Storage> fd_;
   std::function<void(uv_handle_t *)> closing_callback_;
 
-  inline uv_handle_t *_someHandle() const _NOEXCEPT {
+ private:
+  TransmitType fd_type_;
+
+  uv_handle_t *_someHandle() const _NOEXCEPT {
     switch (fd_type_) {
-      case Type::kUDP:
-        return reinterpret_cast<uv_handle_t *>(&fd_->udp);
-      case Type::kDefault:
+      case TransmitType::kUDP:
+        return reinterpret_cast<uv_handle_t *>(&raw_->udp);
+      case TransmitType::kDefault:
       default:
-        return reinterpret_cast<uv_handle_t *>(&fd_->handle);
+        return reinterpret_cast<uv_handle_t *>(&raw_->handle);
     }
   }
-
- private:
-  Type fd_type_;
-};
+};  // namespace uvcc
 }  // namespace uvcc
 
 #endif  // FILEDESCRIPTOR_H

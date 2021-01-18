@@ -32,7 +32,6 @@
 #include <iostream>
 #include <memory>
 #include <type_traits>
-#include <utility>
 
 #include "exception.h"
 
@@ -71,6 +70,16 @@ class Result {
     }
   }
 
+  Result(Result &&) _NOEXCEPT = default;
+
+  Result &operator=(Result &&) _NOEXCEPT = default;
+
+  Result(const Result &) = delete;
+
+  Result &operator=(const Result &) = delete;
+
+  ~Result() = default;
+
   inline bool as(const Result::Type &type) const _NOEXCEPT {
     return type == type_;
   }
@@ -90,21 +99,21 @@ class Result {
   Result::Type type_ = Type::kFailure;
 };
 
-inline bool expr_assert(const int &err, const bool &abs = false) _NOEXCEPT {
-  return abs ? (err == 0) : (err < 0);
+inline bool expr_assert(int err, bool abs = false) _NOEXCEPT {
+  return abs ? (err == 0) : (err >= 0);
 }
 
 inline void expr_cerr(const uvcc::Exception &exception) _NOEXCEPT {
   std::cerr << exception.what() << std::endl;
 }
 
-inline bool expr_cerr_r(const int &err, const bool &abs = false) _NOEXCEPT {
+inline bool expr_cerr_r(int err, bool abs = false) _NOEXCEPT {
   if (expr_assert(err, abs)) return true;
   expr_cerr(uvcc::Exception(err));
   return false;
 }
 
-inline void expr_throws(const int &err, const bool &abs = false) {
+inline void expr_throws(int err, bool abs = false) {
   if (!expr_assert(err, abs)) throw uvcc::Exception(err);
 }
 
@@ -117,6 +126,37 @@ enum class RunOption : int {
   kDefault = UV_RUN_DEFAULT,
   kOnce = UV_RUN_ONCE,
   kNoWait = UV_RUN_NOWAIT,
+};
+
+template <class Type,
+          typename std::enable_if<std::is_constructible<Type>::value ||
+                                      std::is_union<Type>::value,
+                                  int>::type = 0>
+class BaseObject {
+ public:
+  using Self = Type;
+
+  BaseObject() : raw_(uvcc::make_unique<Self>()) {}
+  BaseObject(const Self &self) : raw_(uvcc::make_unique<Self>(self)) {}
+  BaseObject(Self &&self) _NOEXCEPT : raw_(uvcc::make_unique<Self>(self)) {}
+  BaseObject(const BaseObject &) = default;
+  BaseObject(BaseObject &&) _NOEXCEPT = default;
+  BaseObject &operator=(const Self &self) {
+    if (&self == this) return *this;
+    raw_ = uvcc::make_unique<Self>(self);
+    return *this;
+  }
+  BaseObject &operator=(Self &&self) _NOEXCEPT {
+    if (&self == this) return *this;
+    raw_ = std::move(self);
+    return *this;
+  }
+  BaseObject &operator=(const BaseObject &) = default;
+  BaseObject &operator=(BaseObject &&) _NOEXCEPT = default;
+  virtual ~BaseObject() {}
+
+ protected:
+  std::unique_ptr<Self> raw_ = 0;
 };
 
 }  // namespace uvcc

@@ -38,6 +38,10 @@ class Exception : public std::exception {
   explicit Exception(const int &error_code) _NOEXCEPT
       : error_code_(error_code) {}
 
+  Exception(const Exception &) = default;
+
+  Exception &operator=(const Exception &) = default;
+
   const char *what() const _NOEXCEPT { return uv_strerror(error_code_); }
 
   virtual const char *code() const _NOEXCEPT {
