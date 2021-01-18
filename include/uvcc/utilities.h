@@ -29,6 +29,7 @@
 
 #include <uv.h>
 
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <type_traits>
@@ -48,6 +49,11 @@ constexpr auto enum_cast(const EnumType &enum_case) ->
     typename std::underlying_type<EnumType>::type {
   return static_cast<typename std::underlying_type<EnumType>::type>(enum_case);
 }
+
+template <
+    typename ClassType,
+    typename std::enable_if<std::is_pointer<ClassType>::value, int>::type = 0>
+using RawCompletionBlock = typename std::remove_pointer<ClassType>::type;
 
 template <
     typename Success, typename Failure,

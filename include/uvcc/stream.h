@@ -36,6 +36,12 @@
 namespace uvcc {
 
 class Stream : protected FileDescriptor {
+ protected:
+  using ReadingRawCompletionBlock = uvcc::RawCompletionBlock<uv_read_cb>;
+  using ReadingCompletionBlock = std::function<ReadingRawCompletionBlock>;
+  using WritingRawCompletionBlock = uvcc::RawCompletionBlock<uv_write_cb>;
+  using WritingCompletionBlock = std::function<WritingRawCompletionBlock>;
+
  public:
   enum class TransmitType : int {
     kDefault = UV_STREAM,
@@ -48,15 +54,11 @@ class Stream : protected FileDescriptor {
   };
 
   explicit Stream(const TransmitType &type = TransmitType::kDefault,
-                  std::function<void(uv_stream_t *)> &&closing_callback = {})
-      _NOEXCEPT : stream_type_(type) {
-    //    closing_callback_ = std::move(closing_callback);
-    closing_callback_ = [&closing_callback](uv_handle_t *handle) {
-      closing_callback(reinterpret_cast<uv_stream_t *>(handle));
-    };
-    //        std::bind(closing_callback,
-    //                  reinterpret_cast<uv_handle_t
-    //                  *>(std::placeholders::_1));
+                  //                  std::function<void(uv_stream_t *)>
+                  //                  &&closing_callback = {})
+                  ClosingCompletionBlock &&block = {}) _NOEXCEPT
+      : stream_type_(type) {
+    closing_completion_block_ = std::move(block);
     switch (stream_type_) {
       case TransmitType::kTCP:
         raw_->tcp = uv_tcp_t();
@@ -67,13 +69,15 @@ class Stream : protected FileDescriptor {
         break;
     }
   }
+  Stream(const Self &self) : FileDescriptor(self) {}
+  Stream(Self &&self) _NOEXCEPT : FileDescriptor(std::move(self)) {}
 
   void shutdown() {}
 
  private:
   TransmitType stream_type_;
 
-  uv_stream_t *_someStream() const _NOEXCEPT {
+  uv_stream_t *_someRaw() const _NOEXCEPT {
     switch (stream_type_) {
       case TransmitType::kTCP:
         return reinterpret_cast<uv_stream_t *>(&raw_->tcp);

@@ -38,6 +38,11 @@
 namespace uvcc {
 
 class FileDescriptor : protected BaseObject<uv_any_handle> {
+ protected:
+  using ClosingRawCompletionBlock = uvcc::RawCompletionBlock<uv_close_cb>;
+  using ClosingCompletionBlock = std::function<ClosingRawCompletionBlock>;
+  using BaseRawValueType = uv_handle_t;
+
  public:
   enum class TransmitType : int {
     kDefault = UV_HANDLE,
@@ -57,88 +62,87 @@ class FileDescriptor : protected BaseObject<uv_any_handle> {
     kDescriptorTypeMax = UV_HANDLE_TYPE_MAX,
   };
 
-  explicit FileDescriptor(
-      const TransmitType &type = TransmitType::kDefault,
-      std::function<void(uv_handle_t *)> &&closing_callback = {}) _NOEXCEPT
-      : closing_callback_(std::move(closing_callback)),
+  explicit FileDescriptor(const TransmitType &type = TransmitType::kDefault,
+                          ClosingCompletionBlock &&block = {}) _NOEXCEPT
+      : closing_completion_block_(std::move(block)),
         fd_type_(type) {
     switch (fd_type_) {
       case TransmitType::kUDP:
-        raw_->udp = uv_udp_t();
+        raw_->udp = decltype(raw_->udp)();
         break;
       case TransmitType::kDefault:
       default:
-        raw_->handle = uv_handle_t();
+        raw_->handle = decltype(raw_->handle)();
         break;
     }
   }
-  FileDescriptor(const Self &self) : BaseObject<Self>(self) {}
-  FileDescriptor(Self &&self) _NOEXCEPT : BaseObject<Self>(self) {}
+  FileDescriptor(const Self &self, ClosingCompletionBlock &&block = {})
+      : BaseObject<Self>(self), closing_completion_block_(std::move(block)) {}
+  FileDescriptor(Self &&self, ClosingCompletionBlock &&block = {}) _NOEXCEPT
+      : BaseObject<Self>(std::move(self)),
+        closing_completion_block_(std::move(block)) {}
   FileDescriptor(FileDescriptor &&) _NOEXCEPT = default;
   FileDescriptor &operator=(FileDescriptor &&) _NOEXCEPT = default;
+  virtual ~FileDescriptor() { _close(); }
 
   bool isActive() const _NOEXCEPT {
-    return !uvcc::expr_assert(uv_is_active(_someHandle()), true);
+    return !uvcc::expr_assert(uv_is_active(_someRaw()), true);
   }
 
   bool isClosing() const _NOEXCEPT {
-    return !uvcc::expr_assert(uv_is_closing(_someHandle()), true);
+    return !uvcc::expr_assert(uv_is_closing(_someRaw()), true);
   }
 
-  void close() _NOEXCEPT {
-    uv_close(_someHandle(),
-             closing_callback_ ? closing_callback_.target<void(uv_handle_t *)>()
-                               : nullptr);
-  }
+  void reference() _NOEXCEPT { uv_ref(_someRaw()); }
 
-  void reference() _NOEXCEPT { uv_ref(_someHandle()); }
-
-  void unreference() _NOEXCEPT { uv_unref(_someHandle()); }
+  void unreference() _NOEXCEPT { uv_unref(_someRaw()); }
 
   bool hasReference() const _NOEXCEPT {
-    return !uvcc::expr_assert(uv_has_ref(_someHandle()), true);
+    return !uvcc::expr_assert(uv_has_ref(_someRaw()), true);
   }
 
   std::size_t size() const _NOEXCEPT {
-    return uv_handle_size(_someHandle()->type);
+    return uv_handle_size(_someRaw()->type);
   }
 
   const std::unique_ptr<const EventLoop> loop() _NOEXCEPT {
-    return uvcc::make_unique<const EventLoop>(*_someHandle()->loop);
+    return uvcc::make_unique<const EventLoop>(*_someRaw()->loop);
   }
 
   template <typename T>
   const std::unique_ptr<const T> data() const _NOEXCEPT {
-    return uv_handle_get_data(_someHandle());
+    return uv_handle_get_data(_someRaw());
   }
 
   template <typename T>
   std::unique_ptr<const T> setData(std::unique_ptr<T> data) _NOEXCEPT {
-    return uv_handle_set_data(_someHandle(), data);
+    return uv_handle_set_data(_someRaw(), data);
   }
 
   virtual const TransmitType &type() const _NOEXCEPT { return fd_type_; }
 
   virtual const std::string typeName() const _NOEXCEPT {
-    return std::string(uv_handle_type_name(_someHandle()->type));
+    return std::string(uv_handle_type_name(_someRaw()->type));
   }
 
  protected:
-  std::function<void(uv_handle_t *)> closing_callback_;
+  ClosingCompletionBlock closing_completion_block_;
+
+  void _close() _NOEXCEPT {
+    uv_close(_someRaw(),
+             closing_completion_block_
+                 ? closing_completion_block_.target<ClosingRawCompletionBlock>()
+                 : nullptr);
+  }
 
  private:
   TransmitType fd_type_;
 
-  uv_handle_t *_someHandle() const _NOEXCEPT {
-    switch (fd_type_) {
-      case TransmitType::kUDP:
-        return reinterpret_cast<uv_handle_t *>(&raw_->udp);
-      case TransmitType::kDefault:
-      default:
-        return reinterpret_cast<uv_handle_t *>(&raw_->handle);
-    }
+  BaseRawValueType *_someRaw() const _NOEXCEPT {
+    return reinterpret_cast<BaseRawValueType *>(raw_.get());
   }
-};  // namespace uvcc
+};
+
 }  // namespace uvcc
 
 #endif  // FILEDESCRIPTOR_H

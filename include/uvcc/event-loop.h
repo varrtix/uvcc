@@ -29,7 +29,6 @@
 
 #include <uv.h>
 
-#include <functional>
 #include <iostream>
 #include <memory>
 
@@ -38,6 +37,10 @@
 namespace uvcc {
 
 class EventLoop : protected BaseObject<uv_loop_t> {
+ protected:
+  using MappingRawCompletionBlock = uvcc::RawCompletionBlock<uv_walk_cb>;
+  using MappingCompletionBlock = std::function<MappingRawCompletionBlock>;
+
  public:
   EventLoop() : BaseObject<Self>() {
     uvcc::expr_throws(uv_loop_init(raw_.get()));
@@ -78,11 +81,9 @@ class EventLoop : protected BaseObject<uv_loop_t> {
   void updateTime() _NOEXCEPT { uv_update_time(raw_.get()); }
 
   template <typename T>
-  EventLoop &map(
-      std::unique_ptr<T> arg,
-      const std::function<void(uv_handle_t *, void *)> &callback) _NOEXCEPT {
-    uv_walk_cb callback_ptr = callback.target<void(uv_handle_t *, void *)>();
-    uv_walk(raw_.get(), callback_ptr, arg.get());
+  EventLoop &map(std::unique_ptr<T> arg,
+                 MappingCompletionBlock &&block) _NOEXCEPT {
+    uv_walk(raw_.get(), block.target<MappingRawCompletionBlock>(), arg.get());
     return *this;
   }
 
