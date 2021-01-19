@@ -29,24 +29,22 @@
 
 #include <uv.h>
 
-#include <memory>
-#include <string>
-
 #include "event-loop.h"
 #include "utilities.h"
 
 namespace uvcc {
 
-class FileDescriptor : protected BaseObject<uv_any_handle> {
+class FileDescriptor : protected BaseObject<uv_handle_t, uv_any_handle> {
  protected:
+  using AllocatingRawCompletionBlock = uvcc::RawCompletionBlock<uv_alloc_cb>;
+  using AllocatingCompletionBlock = std::function<AllocatingRawCompletionBlock>;
   using ClosingRawCompletionBlock = uvcc::RawCompletionBlock<uv_close_cb>;
   using ClosingCompletionBlock = std::function<ClosingRawCompletionBlock>;
-  using BaseRawValueType = uv_handle_t;
+  //  using BaseRawValueType = uv_handle_t;
 
  public:
   enum class TransmitType : int {
     kDefault = UV_HANDLE,
-    kUnknown = UV_UNKNOWN_HANDLE,
     kAsync = UV_ASYNC,
     kCheck = UV_CHECK,
     kFSEvent = UV_FS_EVENT,
@@ -58,17 +56,48 @@ class FileDescriptor : protected BaseObject<uv_any_handle> {
     kTimer = UV_TIMER,
     kUDP = UV_UDP,
     kSignal = UV_SIGNAL,
-    kFile = UV_FILE,
-    kDescriptorTypeMax = UV_HANDLE_TYPE_MAX,
+    //    kFile = UV_FILE,
+    //    kUnknown = UV_UNKNOWN_HANDLE,
+    //    kDescriptorTypeMax = UV_HANDLE_TYPE_MAX,
   };
 
   explicit FileDescriptor(const TransmitType &type = TransmitType::kDefault,
                           ClosingCompletionBlock &&block = {}) _NOEXCEPT
-      : closing_completion_block_(std::move(block)),
-        fd_type_(type) {
-    switch (fd_type_) {
+      : closing_completion_block_(std::move(block)) {
+    switch (type) {
+      case TransmitType::kAsync: {
+        raw_->async = decltype(raw_->async)();
+        break;
+      }
+      case TransmitType::kCheck:
+        raw_->check = decltype(raw_->check)();
+        break;
+      case TransmitType::kFSEvent:
+        raw_->fs_event = decltype(raw_->fs_event)();
+        break;
+      case TransmitType::kFSPoll:
+        raw_->fs_poll = decltype(raw_->fs_poll)();
+        break;
+      case TransmitType::kIDLE:
+        raw_->idle = decltype(raw_->idle)();
+        break;
+      case TransmitType::kPoll:
+        raw_->poll = decltype(raw_->poll)();
+        break;
+      case TransmitType::kPrepare:
+        raw_->prepare = decltype(raw_->prepare)();
+        break;
+      case TransmitType::kProcess:
+        raw_->process = decltype(raw_->process)();
+        break;
+      case TransmitType::kTimer:
+        raw_->timer = decltype(raw_->timer)();
+        break;
       case TransmitType::kUDP:
         raw_->udp = decltype(raw_->udp)();
+        break;
+      case TransmitType::kSignal:
+        raw_->signal = decltype(raw_->signal)();
         break;
       case TransmitType::kDefault:
       default:
@@ -119,7 +148,9 @@ class FileDescriptor : protected BaseObject<uv_any_handle> {
     return uv_handle_set_data(_someRaw(), data);
   }
 
-  virtual const TransmitType &type() const _NOEXCEPT { return fd_type_; }
+  virtual TransmitType type() const _NOEXCEPT {
+    return _type(_someRaw()->type);
+  }
 
   virtual const std::string typeName() const _NOEXCEPT {
     return std::string(uv_handle_type_name(_someRaw()->type));
@@ -129,6 +160,7 @@ class FileDescriptor : protected BaseObject<uv_any_handle> {
   ClosingCompletionBlock closing_completion_block_;
 
   void _close() _NOEXCEPT {
+    if (_someRaw()->type == UV_UNKNOWN_HANDLE) return;
     uv_close(_someRaw(),
              closing_completion_block_
                  ? closing_completion_block_.target<ClosingRawCompletionBlock>()
@@ -136,10 +168,12 @@ class FileDescriptor : protected BaseObject<uv_any_handle> {
   }
 
  private:
-  TransmitType fd_type_;
+  inline TransmitType _type(const uv_handle_type &raw_type) const _NOEXCEPT {
+    return static_cast<TransmitType>(raw_type);
+  }
 
-  BaseRawValueType *_someRaw() const _NOEXCEPT {
-    return reinterpret_cast<BaseRawValueType *>(raw_.get());
+  inline uv_handle_type _rawType(const TransmitType &type) const _NOEXCEPT {
+    return static_cast<uv_handle_type>(type);
   }
 };
 

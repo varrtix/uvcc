@@ -28,18 +28,20 @@
 #define REQUEST_H
 
 #include <uv.h>
-#include <uvcc/utilities.h>
 
 #include <memory>
 #include <string>
 
+#include "utilities.h"
+
 namespace uvcc {
 
-class Request {
- public:
-  using Storage = uv_any_req;
+class Request : protected BaseObject<uv_any_req> {
+ protected:
+  using BaseRawRequestType = uv_req_t;
 
-  enum class Type : int {
+ public:
+  enum class TransmitType : int {
     kDefault = UV_REQ,
     kConnect = UV_CONNECT,
     kWrite = UV_WRITE,
@@ -50,20 +52,53 @@ class Request {
     kGetAddrInfo = UV_GETADDRINFO,
     kGetNameInfo = UV_GETNAMEINFO,
     kRandom = UV_RANDOM,
-    kUnknown = UV_UNKNOWN_REQ,
-    kRequestTypeMax = UV_REQ_TYPE_MAX,
+    //    kUnknown = UV_UNKNOWN_REQ,
+    //    kRequestTypeMax = UV_REQ_TYPE_MAX,
   };
 
-  explicit Request(const Type &type = Type::kDefault) _NOEXCEPT
+  explicit Request(const TransmitType &type = TransmitType::kDefault) _NOEXCEPT
       : req_type_(type) {
     switch (req_type_) {
-      case Type::kDefault:
+      case TransmitType::kConnect:
+        raw_->connect = decltype(raw_->connect)();
+        break;
+      case TransmitType::kWrite:
+        raw_->write = decltype(raw_->write)();
+        break;
+      case TransmitType::kShutdown:
+        raw_->shutdown = decltype(raw_->shutdown)();
+        break;
+      case TransmitType::kUDPSend:
+        raw_->udp_send = decltype(raw_->udp_send)();
+        break;
+      case TransmitType::kFS:
+        raw_->fs = decltype(raw_->fs)();
+        break;
+      case TransmitType::kWork:
+        raw_->work = decltype(raw_->work)();
+        break;
+      case TransmitType::kGetAddrInfo:
+        raw_->getaddrinfo = decltype(raw_->getaddrinfo)();
+        break;
+      case TransmitType::kGetNameInfo:
+        raw_->getnameinfo = decltype(raw_->getnameinfo)();
+        break;
+      case TransmitType::kRandom:
+        raw_->random = decltype(raw_->random)();
+        break;
+      case TransmitType::kDefault:
       default:
-        req_ = uvcc::make_unique<Storage>(uv_req_t());
+        raw_->req = decltype(raw_->req)();
+        break;
     }
   }
+  Request(const Self &self) : BaseObject<Self>(self) {}
+  Request(Self &&self) _NOEXCEPT : BaseObject<Self>(std::move(self)) {}
+  Request(Request &&) _NOEXCEPT = default;
+  Request &operator=(Request &&) _NOEXCEPT = default;
 
-  void cancel() { uvcc::expr_throws(uv_cancel(_someRequest()), true); }
+  //  void cancel() { uvcc::expr_throws(uv_cancel(_someRequest()), true); }
+  //    void cancel() { uvcc::}
 
   std::size_t size() const _NOEXCEPT {
     return uv_req_size(_someRequest()->type);
@@ -85,19 +120,21 @@ class Request {
     return std::string(uv_req_type_name(_someRequest()->type));
   }
 
- protected:
-  std::unique_ptr<Storage> req_;
+  // protected:
+  //  std::unique_ptr<Storage> req_;
 
-  inline uv_req_t *_someRequest() const _NOEXCEPT {
-    switch (req_type_) {
-      case Type::kDefault:
-      default:
-        return reinterpret_cast<uv_req_t *>(&req_->req);
-    }
-  }
+  //  inline uv_req_t *_someRequest() const _NOEXCEPT {
+  //    switch (req_type_) {
+  //      case Type::kDefault:
+  //      default:
+  //        return reinterpret_cast<uv_req_t *>(&req_->req);
+  //    }
+  //  }
 
  private:
-  Type req_type_;
+  inline BaseRawRequestType *_someRaw() const _NOEXCEPT {
+    return reinterpret_cast<BaseRawRequestType *>(raw_.get());
+  }
 };
 
 }  // namespace uvcc

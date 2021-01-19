@@ -29,8 +29,6 @@
 
 #include <uv.h>
 
-#include <functional>
-
 #include "file-descriptor.h"
 
 namespace uvcc {
@@ -41,6 +39,13 @@ class Stream : protected FileDescriptor {
   using ReadingCompletionBlock = std::function<ReadingRawCompletionBlock>;
   using WritingRawCompletionBlock = uvcc::RawCompletionBlock<uv_write_cb>;
   using WritingCompletionBlock = std::function<WritingRawCompletionBlock>;
+  using ConnectingRawCompletionBlock = uvcc::RawCompletionBlock<uv_connect_cb>;
+  using ConnectingCompletionBlock = std::function<ConnectingRawCompletionBlock>;
+  using ShutdownRawCompletionBlock = uvcc::RawCompletionBlock<uv_shutdown_cb>;
+  using ShutdownCompletionBlock = std::function<ShutdownRawCompletionBlock>;
+  using RecevingRawCompletionBlock = uvcc::RawCompletionBlock<uv_connection_cb>;
+  using RecevingCompletionBlock = std::function<RecevingRawCompletionBlock>;
+  using StreamRawValueType = uv_stream_t;
 
  public:
   enum class TransmitType : int {
@@ -48,29 +53,37 @@ class Stream : protected FileDescriptor {
     kTCP = UV_TCP,
     kTTY = UV_TTY,
     kNamedPipe = UV_NAMED_PIPE,
-    kUnknown = UV_UNKNOWN_HANDLE,
-    kFile = UV_FILE,
-    kHandleTypeMax = UV_HANDLE_TYPE_MAX,
+    //    kUnknown = UV_UNKNOWN_HANDLE,
+    //    kFile = UV_FILE,
+    //    kHandleTypeMax = UV_HANDLE_TYPE_MAX,
   };
 
   explicit Stream(const TransmitType &type = TransmitType::kDefault,
-                  //                  std::function<void(uv_stream_t *)>
-                  //                  &&closing_callback = {})
                   ClosingCompletionBlock &&block = {}) _NOEXCEPT
       : stream_type_(type) {
     closing_completion_block_ = std::move(block);
     switch (stream_type_) {
       case TransmitType::kTCP:
-        raw_->tcp = uv_tcp_t();
+        raw_->tcp = decltype(raw_->tcp)();
+        break;
+      case TransmitType::kTTY:
+        raw_->tty = decltype(raw_->tty)();
+        break;
+      case TransmitType::kNamedPipe:
+        raw_->pipe = decltype(raw_->pipe)();
         break;
       case TransmitType::kDefault:
       default:
-        raw_->stream = uv_stream_t();
+        raw_->stream = decltype(raw_->stream)();
         break;
     }
   }
-  Stream(const Self &self) : FileDescriptor(self) {}
-  Stream(Self &&self) _NOEXCEPT : FileDescriptor(std::move(self)) {}
+  Stream(const Self &self, ClosingCompletionBlock &&block)
+      : FileDescriptor(self, std::move(block)) {}
+  Stream(Self &&self, ClosingCompletionBlock &&block = {}) _NOEXCEPT
+      : FileDescriptor(std::move(self), std::move(block)) {}
+  Stream(Stream &&) _NOEXCEPT = default;
+  Stream &operator=(Stream &&) _NOEXCEPT = default;
 
   void shutdown() {}
 
@@ -78,13 +91,7 @@ class Stream : protected FileDescriptor {
   TransmitType stream_type_;
 
   uv_stream_t *_someRaw() const _NOEXCEPT {
-    switch (stream_type_) {
-      case TransmitType::kTCP:
-        return reinterpret_cast<uv_stream_t *>(&raw_->tcp);
-      case TransmitType::kDefault:
-      default:
-        return reinterpret_cast<uv_stream_t *>(&raw_->stream);
-    }
+    return reinterpret_cast<StreamRawValueType *>(raw_.get());
   }
 };
 

@@ -29,10 +29,7 @@
 
 #include <uv.h>
 
-#include <functional>
 #include <iostream>
-#include <memory>
-#include <type_traits>
 
 #include "exception.h"
 
@@ -45,7 +42,7 @@ std::unique_ptr<T> make_unique(Ts &&...params) {
 
 template <typename EnumType,
           typename std::enable_if<std::is_enum<EnumType>::value, int>::type = 0>
-constexpr auto enum_cast(const EnumType &enum_case) ->
+constexpr auto enum_cast(const EnumType &enum_case) _NOEXCEPT ->
     typename std::underlying_type<EnumType>::type {
   return static_cast<typename std::underlying_type<EnumType>::type>(enum_case);
 }
@@ -134,13 +131,15 @@ enum class RunOption : int {
   kNoWait = UV_RUN_NOWAIT,
 };
 
-template <class Type,
-          typename std::enable_if<std::is_constructible<Type>::value ||
-                                      std::is_union<Type>::value,
+template <typename Type, typename UnionType = void,
+          typename std::enable_if<std::is_union<UnionType>::value ||
+                                      (std::is_void<UnionType>::value &&
+                                       !std::is_union<Type>::value),
                                   int>::type = 0>
 class BaseObject {
  public:
-  using Self = Type;
+  using Self = typename std::conditional<std::is_void<UnionType>::value, Type,
+                                         UnionType>::type;
 
   BaseObject() : raw_(uvcc::make_unique<Self>()) {}
   BaseObject(const Self &self) : raw_(uvcc::make_unique<Self>(self)) {}
@@ -148,13 +147,13 @@ class BaseObject {
   BaseObject(const BaseObject &) = default;
   BaseObject(BaseObject &&) _NOEXCEPT = default;
   BaseObject &operator=(const Self &self) {
-    if (&self == this) return *this;
+    if (&self == this->raw_.get()) return *this;
     raw_ = uvcc::make_unique<Self>(self);
     return *this;
   }
   BaseObject &operator=(Self &&self) _NOEXCEPT {
-    if (&self == this) return *this;
-    raw_ = std::move(self);
+    if (&self == this->raw_.get()) return *this;
+    *raw_ = std::move(self);
     return *this;
   }
   BaseObject &operator=(const BaseObject &) = default;
@@ -163,6 +162,17 @@ class BaseObject {
 
  protected:
   std::unique_ptr<Self> raw_ = 0;
+
+  template <typename RawValuePointer = typename std::add_pointer<Type>::type,
+            typename std::enable_if<std::is_pointer<RawValuePointer>::value,
+                                    int>::type = 0>
+  inline RawValuePointer _someRaw() const _NOEXCEPT {
+    //    return typename std::is_same<Self, Type>::value
+    //               ? raw_.get()
+    //               : reinterpret_cast<RawValuePointer>(raw_.get());
+    //    return raw_.get();
+    return reinterpret_cast<RawValuePointer>(raw_.get());
+  }
 };
 
 }  // namespace uvcc

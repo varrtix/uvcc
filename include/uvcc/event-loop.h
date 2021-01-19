@@ -46,16 +46,6 @@ class EventLoop : protected BaseObject<uv_loop_t> {
   EventLoop(Self &&self) _NOEXCEPT : BaseObject<Self>(self) {}
   EventLoop(EventLoop &&) _NOEXCEPT = default;
   EventLoop &operator=(EventLoop &&) _NOEXCEPT = default;
-  EventLoop &operator=(const Self &self) {
-    if (&self == this->raw_.get()) return *this;
-    raw_ = uvcc::make_unique<Self>(self);
-    return *this;
-  }
-  EventLoop &operator=(Self &&self) _NOEXCEPT {
-    if (&self == this->raw_.get()) return *this;
-    *raw_ = std::move(self);
-    return *this;
-  }
   ~EventLoop() _NOEXCEPT {
     try {
       _close();
