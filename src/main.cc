@@ -92,8 +92,13 @@ void on_new_connection(uv_stream_t *server, int status) {
 }
 
 int main() {
+  //  uvcc::network::Endpoint::IPv4Address n_addr("");
+  //    auto ad = uvcc::network::Endpoint::IPv4Address("");
+  auto any = uvcc::network::Endpoint::IPv4Address::any();
+  auto ep = uvcc::network::Endpoint(any, 2333);
+
   loop = uv_default_loop();
-  //  auto loop = uvcc::EventLoop::standard();
+  //    auto loop = uvcc::EventLoop::standard();
 
   uv_tcp_t server;
   uv_tcp_init(loop, &server);

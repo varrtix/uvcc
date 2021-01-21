@@ -145,20 +145,18 @@ class BaseObject {
   BaseObject() : raw_(uvcc::make_unique<Self>()) {}
   BaseObject(const Self &self) : raw_(uvcc::make_unique<Self>(self)) {}
   BaseObject(Self &&self) _NOEXCEPT : raw_(uvcc::make_unique<Self>(self)) {}
-  BaseObject(const BaseObject &) = default;
+  //  BaseObject(const BaseObject &) = default;
   BaseObject(BaseObject &&) _NOEXCEPT = default;
+  //  BaseObject &operator=(const BaseObject &) = default;
+  BaseObject &operator=(BaseObject &&) _NOEXCEPT = default;
   BaseObject &operator=(const Self &self) {
-    if (&self == this->raw_.get()) return *this;
-    raw_ = uvcc::make_unique<Self>(self);
+    if (&self != this->_someRaw()) raw_ = uvcc::make_unique<Self>(self);
     return *this;
   }
   BaseObject &operator=(Self &&self) _NOEXCEPT {
-    if (&self == this->raw_.get()) return *this;
-    *raw_ = std::move(self);
+    if (&self != this->_someRaw()) *raw_ = std::move(self);
     return *this;
   }
-  BaseObject &operator=(const BaseObject &) = default;
-  BaseObject &operator=(BaseObject &&) _NOEXCEPT = default;
   virtual ~BaseObject() = default;
 
  protected:

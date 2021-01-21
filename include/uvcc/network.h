@@ -29,11 +29,7 @@
 
 #include <sys/socket.h>
 #include <uv.h>
-//#include <uvcc/utilities.h>
 
-//#include <memory>
-//#include <string>
-//#include <type_traits>
 #include "utilities.h"
 
 namespace uvcc {
@@ -51,54 +47,47 @@ typedef union {
   struct in6_addr addr_6_;
 } AnyRawSocketAddress;
 
-class Endpoint {
+class Endpoint : protected BaseObject<sockaddr, AnyRawSocketEndpoint> {
  public:
   template <typename AddressType>
   class BaseIPAddress : protected BaseObject<AddressType, AnyRawSocketAddress> {
-   public:
-    BaseIPAddress(const AddressType &self)
-        : BaseObject<AddressType, AnyRawSocketAddress>(self) {}
-    BaseIPAddress(AddressType &&self) _NOEXCEPT
-        : BaseObject<AddressType, AnyRawSocketAddress>(std::move(self)) {}
-    BaseIPAddress(const BaseIPAddress &) = delete;
-    BaseIPAddress(BaseIPAddress &&) _NOEXCEPT = default;
   };
 
-  //  class IPAddress : protected BaseIPAddress<> {
-  //   public:
-  //    IPAddress(const IPAddress &) = delete;
-  //    IPAddress &operator=(const IPAddress &) = delete;
-  //    virtual ~IPAddress() = default;
-  //  };
-
   class IPv4Address : protected BaseIPAddress<struct in_addr> {
-   public:
-    //    IPv4Address(const std::string &addr_str) : BaseIPAddress() {
-    //    explicit IPv4Address(const std::string &addr_str) {
-    //      uvcc::expr_throws(
-    //          uv_inet_pton(AF_INET, addr_str.c_str(), &addr_->sin_addr));
-    //        _someRaw()->sin_addr
-    //      auto a6 = sockaddr_in6();
-    //      a6.sin6_addr
-    //    }
-    //    IPv4Address(IPv4Address &&addr) _NOEXCEPT { addr_ =
-    //    std::move(addr.addr_); }
+    friend class Endpoint;
 
-    //    IPv4Address &operator=(IPv4Address &&addr) {
-    //      addr_ = std::move(addr.addr_);
-    //      return *this;
-    //    }
-    //    IPv4Address() = delete;
-    explicit IPv4Address(const std::string &addr_str) {
+   public:
+    IPv4Address() = delete;
+    explicit IPv4Address(const std::string &addr_str)
+        : BaseIPAddress<struct in_addr>() {
       raw_->addr_4_ = decltype(raw_->addr_4_)();
       uvcc::expr_throws(uv_inet_pton(AF_INET, addr_str.c_str(), _someRaw()));
     }
-    IPv4Address(Self &&self) _NOEXCEPT
-        : BaseIPAddress<struct in_addr>(std::move(self)) {}
-    //    IPv4Address(const Self &self)
-    //        : BaseIPAddress<struct in_addr, AnyRawSocketAddress>(self) {}
-
-    //    ~IPv4Address() {}
+    IPv4Address(const struct in_addr &addr) : BaseIPAddress<struct in_addr>() {
+      raw_->addr_4_ = addr;
+    }
+    IPv4Address(struct in_addr &&addr) _NOEXCEPT
+        : BaseIPAddress<struct in_addr>() {
+      raw_->addr_4_ = std::move(addr);
+    }
+    IPv4Address(const IPv4Address &addr) {
+      raw_ = uvcc::make_unique<Self>(*addr.raw_);
+    }
+    IPv4Address(IPv4Address &&) _NOEXCEPT = default;
+    IPv4Address &operator=(const IPv4Address &addr) {
+      if (&addr != this) this->raw_.reset(addr.raw_.get());
+      return *this;
+    }
+    IPv4Address &operator=(IPv4Address &&) _NOEXCEPT = default;
+    IPv4Address &operator=(const struct in_addr &addr) {
+      if (&addr != this->_someRaw()) raw_->addr_4_ = addr;
+      return *this;
+    }
+    IPv4Address &operator=(struct in_addr &&addr) _NOEXCEPT {
+      if (&addr != this->_someRaw()) raw_->addr_4_ = std::move(addr);
+      return *this;
+    }
+    ~IPv4Address() = default;
 
     static const IPv4Address any() _NOEXCEPT { return IPv4Address("0.0.0.0"); }
 
@@ -120,16 +109,10 @@ class Endpoint {
     static const IPv4Address mdnsGroup() _NOEXCEPT {
       return IPv4Address("224.0.0.251");
     }
+  };
 
-    //   private:
-    //    Address *_sockaddr() const _NOEXCEPT override { return addr_.get(); }
-
-    //    const Family *_family() const _NOEXCEPT override {
-    //      return &addr_->sin_family;
-    //    }
-    //    RawIPv4Address *_sockaddr() const _NOEXCEPT {
-    //      return reinterpret_cast<RawIPv4Address *>(storage_.get());
-    //    }
+  class IPv6Address : protected BaseIPAddress<struct in6_addr> {
+    friend class Endpoint;
   };
 
   typedef enum : int {
@@ -144,19 +127,28 @@ class Endpoint {
     kSocks = 1080,
   } Port;
 
-  template <typename Address, typename RawAddress,
-            typename std::enable_if<
-                std::is_base_of<BaseIPAddress<RawAddress>, Address>::value,
-                int>::type = 0>
-  Endpoint(const Address &address, const Port &port) {
-    //    switch (static_cast<IPAddress>(address).family()) {
-    //      case AF_INET:
-    //        uvcc::expr_throws(uv_ip4_addr());
-    //      default:
-    //        throw uvcc::Exception(UV_EAFNOSUPPORT);
-    //    }
+  explicit Endpoint(const IPv4Address &address, const Port &port) {
+    Endpoint(address, static_cast<std::uint16_t>(port));
   }
+  explicit Endpoint(const IPv4Address &address, const std::uint16_t port) {
+    raw_->addr_in_4_ = decltype(raw_->addr_in_4_)();
+    raw_->addr_in_4_.sin_family = AF_INET;
+    raw_->addr_in_4_.sin_addr = *address._someRaw();
+    raw_->addr_in_4_.sin_port = htons(port);
+  }
+  Endpoint(const Endpoint &ep) { raw_ = uvcc::make_unique<Self>(*ep.raw_); }
+  Endpoint(Endpoint &&) _NOEXCEPT = default;
+  Endpoint &operator=(const Endpoint &ep) {
+    if (&ep != this) this->raw_.reset(ep.raw_.get());
+    return *this;
+  }
+  Endpoint &operator=(Endpoint &&) = default;
+  ~Endpoint() = default;
 };
+
+class Listener {};
+
+class Connection {};
 
 }  // namespace network
 
