@@ -140,6 +140,7 @@ class BaseObject {
  public:
   using Self = typename std::conditional<std::is_void<UnionType>::value, Type,
                                          UnionType>::type;
+  using UnionSelf = UnionType;
 
   BaseObject() : raw_(uvcc::make_unique<Self>()) {}
   BaseObject(const Self &self) : raw_(uvcc::make_unique<Self>(self)) {}
@@ -158,7 +159,7 @@ class BaseObject {
   }
   BaseObject &operator=(const BaseObject &) = default;
   BaseObject &operator=(BaseObject &&) _NOEXCEPT = default;
-  virtual ~BaseObject() {}
+  virtual ~BaseObject() = default;
 
  protected:
   std::unique_ptr<Self> raw_ = 0;
@@ -167,10 +168,6 @@ class BaseObject {
             typename std::enable_if<std::is_pointer<RawValuePointer>::value,
                                     int>::type = 0>
   inline RawValuePointer _someRaw() const _NOEXCEPT {
-    //    return typename std::is_same<Self, Type>::value
-    //               ? raw_.get()
-    //               : reinterpret_cast<RawValuePointer>(raw_.get());
-    //    return raw_.get();
     return reinterpret_cast<RawValuePointer>(raw_.get());
   }
 };

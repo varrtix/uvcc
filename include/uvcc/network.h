@@ -29,117 +29,79 @@
 
 #include <sys/socket.h>
 #include <uv.h>
-#include <uvcc/utilities.h>
+//#include <uvcc/utilities.h>
 
-#include <memory>
-#include <string>
-#include <type_traits>
+//#include <memory>
+//#include <string>
+//#include <type_traits>
+#include "utilities.h"
 
 namespace uvcc {
 
 namespace network {
 
+typedef union {
+  sockaddr addr_;
+  sockaddr_in addr_in_4_;
+  sockaddr_in6 addr_in_6_;
+} AnyRawSocketEndpoint;
+
+typedef union {
+  struct in_addr addr_4_;
+  struct in6_addr addr_6_;
+} AnyRawSocketAddress;
+
 class Endpoint {
  public:
-  template <class AddressType>
-  class BaseIPAddress {
-   protected:
-    using Family = sa_family_t;
-    using Address = AddressType;
-
-    //    typedef union {
-    //      sockaddr addr_;
-    //      sockaddr_in addr_in_;
-    //      sockaddr_in6 addr_in_6_;
-    //    } Storage;
-    std::unique_ptr<Address> addr_;
-
-    virtual Address *_sockaddr() const _NOEXCEPT = 0;
-
-    virtual const Family *_family() const _NOEXCEPT = 0;
-
+  template <typename AddressType>
+  class BaseIPAddress : protected BaseObject<AddressType, AnyRawSocketAddress> {
    public:
-    BaseIPAddress() _NOEXCEPT : addr_(uvcc::make_unique<Address>()) {}
-    BaseIPAddress(Address &&addr) _NOEXCEPT : addr_(std::move(addr)) {}
-
-    BaseIPAddress &operator=(Address &&addr) _NOEXCEPT {
-      addr_ = std::move(addr);
-      return *this;
-    }
-
-    virtual ~BaseIPAddress() = 0;
+    BaseIPAddress(const AddressType &self)
+        : BaseObject<AddressType, AnyRawSocketAddress>(self) {}
+    BaseIPAddress(AddressType &&self) _NOEXCEPT
+        : BaseObject<AddressType, AnyRawSocketAddress>(std::move(self)) {}
+    BaseIPAddress(const BaseIPAddress &) = delete;
+    BaseIPAddress(BaseIPAddress &&) _NOEXCEPT = default;
   };
 
-  class IPAddress : public BaseIPAddress<sockaddr> {
-   protected:
-    //    typedef union {
-    //      sockaddr addr_;
-    //      sockaddr_in addr_in_;
-    //      sockaddr_in6 addr_in_6_;
-    //    } Storage;
+  //  class IPAddress : protected BaseIPAddress<> {
+  //   public:
+  //    IPAddress(const IPAddress &) = delete;
+  //    IPAddress &operator=(const IPAddress &) = delete;
+  //    virtual ~IPAddress() = default;
+  //  };
 
-    //    struct in_addr addr_;
-    //    Storage storage_;
-    //    std::unique_ptr<Storage> storage_;
-
-    //    RawAddress *_sockaddr() const _NOEXCEPT {
-    //      return reinterpret_cast<sockaddr *>(&storage_->addr_);
-    //    }
-    Address *_sockaddr() const _NOEXCEPT override { return addr_.get(); }
-
-    const Family *_family() const _NOEXCEPT override {
-      return &addr_->sa_family;
-    }
-
+  class IPv4Address : protected BaseIPAddress<struct in_addr> {
    public:
-    IPAddress(const IPAddress &) = delete;
-    IPAddress &operator=(const IPAddress &) = delete;
-    virtual ~IPAddress() = default;
-
-    //    virtual Storage *rawData() const _NOEXCEPT = 0;
-    //    inline Storage *rawData() const _NOEXCEPT { return storage_.get(); }
-
-    //    virtual const Family *family() const _NOEXCEPT {
-    //      return &reinterpret_cast<RawAddress *>(storage_.get())->sa_family;
-    //    }
-
-    //    inline Storage *rawData() const _NOEXCEPT { return storage_.get(); }
-  };
-
-  class IPv4Address : public BaseIPAddress<sockaddr_in> {
-   public:
-    IPv4Address(const std::string &addr_str) : BaseIPAddress() {
-      uvcc::expr_throws(
-          uv_inet_pton(AF_INET, addr_str.c_str(), &addr_->sin_addr));
-    }
-    IPv4Address(IPv4Address &&addr) _NOEXCEPT { addr_ = std::move(addr.addr_); }
-
-    IPv4Address &operator=(IPv4Address &&addr) {
-      addr_ = std::move(addr.addr_);
-      return *this;
-    }
-
-    ~IPv4Address() = default;
-
-    //      storage_ = uvcc::make_unique<Storage>(sockaddr_in());
+    //    IPv4Address(const std::string &addr_str) : BaseIPAddress() {
+    //    explicit IPv4Address(const std::string &addr_str) {
     //      uvcc::expr_throws(
-    //          uv_inet_pton(AF_INET, addr.c_str(),
-    //          &_someSockaddr()->sin_addr));
-    //          &reinterpret_cast<sockaddr_in
-    //          *>(&storage_->addr_in_)->sin_addr));
+    //          uv_inet_pton(AF_INET, addr_str.c_str(), &addr_->sin_addr));
+    //        _someRaw()->sin_addr
+    //      auto a6 = sockaddr_in6();
+    //      a6.sin6_addr
     //    }
-    //    IPv4Address(const IPv4Address &&) _NOEXCEPT = default;
-    //    IPv4Address &operator=(const IPv4Address &&) _NOEXCEPT =
-    //    default;
+    //    IPv4Address(IPv4Address &&addr) _NOEXCEPT { addr_ =
+    //    std::move(addr.addr_); }
 
-    //    Address
-
-    //    const Family *family() const _NOEXCEPT override {
-    //      return &_someSockaddr()->sin_family;
+    //    IPv4Address &operator=(IPv4Address &&addr) {
+    //      addr_ = std::move(addr.addr_);
+    //      return *this;
     //    }
+    //    IPv4Address() = delete;
+    explicit IPv4Address(const std::string &addr_str) {
+      raw_->addr_4_ = decltype(raw_->addr_4_)();
+      uvcc::expr_throws(uv_inet_pton(AF_INET, addr_str.c_str(), _someRaw()));
+    }
+    IPv4Address(Self &&self) _NOEXCEPT
+        : BaseIPAddress<struct in_addr>(std::move(self)) {}
+    //    IPv4Address(const Self &self)
+    //        : BaseIPAddress<struct in_addr, AnyRawSocketAddress>(self) {}
 
-    //    static const IPv4Address any() _NOEXCEPT { return
-    //    IPv4Address("0.0.0.0"); }
+    //    ~IPv4Address() {}
+
+    static const IPv4Address any() _NOEXCEPT { return IPv4Address("0.0.0.0"); }
+
     static const IPv4Address broadcast() _NOEXCEPT {
       return IPv4Address("255.255.255.255");
     }
@@ -159,12 +121,12 @@ class Endpoint {
       return IPv4Address("224.0.0.251");
     }
 
-   private:
-    Address *_sockaddr() const _NOEXCEPT override { return addr_.get(); }
+    //   private:
+    //    Address *_sockaddr() const _NOEXCEPT override { return addr_.get(); }
 
-    const Family *_family() const _NOEXCEPT override {
-      return &addr_->sin_family;
-    }
+    //    const Family *_family() const _NOEXCEPT override {
+    //      return &addr_->sin_family;
+    //    }
     //    RawIPv4Address *_sockaddr() const _NOEXCEPT {
     //      return reinterpret_cast<RawIPv4Address *>(storage_.get());
     //    }

@@ -40,7 +40,6 @@ class FileDescriptor : protected BaseObject<uv_handle_t, uv_any_handle> {
   using AllocatingCompletionBlock = std::function<AllocatingRawCompletionBlock>;
   using ClosingRawCompletionBlock = uvcc::RawCompletionBlock<uv_close_cb>;
   using ClosingCompletionBlock = std::function<ClosingRawCompletionBlock>;
-  //  using BaseRawValueType = uv_handle_t;
 
  public:
   enum class TransmitType : int {
@@ -56,8 +55,8 @@ class FileDescriptor : protected BaseObject<uv_handle_t, uv_any_handle> {
     kTimer = UV_TIMER,
     kUDP = UV_UDP,
     kSignal = UV_SIGNAL,
-    //    kFile = UV_FILE,
-    //    kUnknown = UV_UNKNOWN_HANDLE,
+    kFile = UV_FILE,
+    kUnknown = UV_UNKNOWN_HANDLE,
     //    kDescriptorTypeMax = UV_HANDLE_TYPE_MAX,
   };
 
@@ -100,15 +99,18 @@ class FileDescriptor : protected BaseObject<uv_handle_t, uv_any_handle> {
         raw_->signal = decltype(raw_->signal)();
         break;
       case TransmitType::kDefault:
-      default:
         raw_->handle = decltype(raw_->handle)();
+        break;
+      default:
+        raw_ = uvcc::make_unique<Self>();
         break;
     }
   }
   FileDescriptor(const Self &self, ClosingCompletionBlock &&block = {})
-      : BaseObject<Self>(self), closing_completion_block_(std::move(block)) {}
+      : BaseObject<uv_handle_t, uv_any_handle>(self),
+        closing_completion_block_(std::move(block)) {}
   FileDescriptor(Self &&self, ClosingCompletionBlock &&block = {}) _NOEXCEPT
-      : BaseObject<Self>(std::move(self)),
+      : BaseObject<uv_handle_t, uv_any_handle>(std::move(self)),
         closing_completion_block_(std::move(block)) {}
   FileDescriptor(FileDescriptor &&) _NOEXCEPT = default;
   FileDescriptor &operator=(FileDescriptor &&) _NOEXCEPT = default;
@@ -131,7 +133,7 @@ class FileDescriptor : protected BaseObject<uv_handle_t, uv_any_handle> {
   }
 
   std::size_t size() const _NOEXCEPT {
-    return uv_handle_size(_someRaw()->type);
+    return _validateType() ? uv_handle_size(_someRaw()->type) : 0;
   }
 
   const std::unique_ptr<const EventLoop> loop() _NOEXCEPT {
@@ -160,11 +162,19 @@ class FileDescriptor : protected BaseObject<uv_handle_t, uv_any_handle> {
   ClosingCompletionBlock closing_completion_block_;
 
   void _close() _NOEXCEPT {
-    if (_someRaw()->type == UV_UNKNOWN_HANDLE) return;
-    uv_close(_someRaw(),
-             closing_completion_block_
-                 ? closing_completion_block_.target<ClosingRawCompletionBlock>()
-                 : nullptr);
+    if (_validateType())
+      uv_close(
+          _someRaw(),
+          closing_completion_block_
+              ? closing_completion_block_.target<ClosingRawCompletionBlock>()
+              : nullptr);
+    else
+      return;
+  }
+
+  inline virtual bool _validateType() const _NOEXCEPT {
+    return _someRaw()->type > UV_UNKNOWN_HANDLE &&
+           _someRaw()->type < UV_HANDLE_TYPE_MAX;
   }
 
  private:

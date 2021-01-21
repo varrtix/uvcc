@@ -29,17 +29,11 @@
 
 #include <uv.h>
 
-#include <memory>
-#include <string>
-
 #include "utilities.h"
 
 namespace uvcc {
 
-class Request : protected BaseObject<uv_any_req> {
- protected:
-  using BaseRawRequestType = uv_req_t;
-
+class Request : protected BaseObject<uv_req_t, uv_any_req> {
  public:
   enum class TransmitType : int {
     kDefault = UV_REQ,
@@ -52,13 +46,13 @@ class Request : protected BaseObject<uv_any_req> {
     kGetAddrInfo = UV_GETADDRINFO,
     kGetNameInfo = UV_GETNAMEINFO,
     kRandom = UV_RANDOM,
-    //    kUnknown = UV_UNKNOWN_REQ,
+    kUnknown = UV_UNKNOWN_REQ,
     //    kRequestTypeMax = UV_REQ_TYPE_MAX,
   };
 
-  explicit Request(const TransmitType &type = TransmitType::kDefault) _NOEXCEPT
-      : req_type_(type) {
-    switch (req_type_) {
+  explicit Request(
+      const TransmitType &type = TransmitType::kDefault) _NOEXCEPT {
+    switch (type) {
       case TransmitType::kConnect:
         raw_->connect = decltype(raw_->connect)();
         break;
@@ -87,53 +81,57 @@ class Request : protected BaseObject<uv_any_req> {
         raw_->random = decltype(raw_->random)();
         break;
       case TransmitType::kDefault:
-      default:
         raw_->req = decltype(raw_->req)();
+        break;
+      default:
+        raw_ = uvcc::make_unique<Self>();
         break;
     }
   }
-  Request(const Self &self) : BaseObject<Self>(self) {}
-  Request(Self &&self) _NOEXCEPT : BaseObject<Self>(std::move(self)) {}
+  Request(const Self &self) : BaseObject<uv_req_t, uv_any_req>(self) {}
+  Request(Self &&self) _NOEXCEPT
+      : BaseObject<uv_req_t, uv_any_req>(std::move(self)) {}
   Request(Request &&) _NOEXCEPT = default;
   Request &operator=(Request &&) _NOEXCEPT = default;
+  virtual ~Request() = default;
 
-  //  void cancel() { uvcc::expr_throws(uv_cancel(_someRequest()), true); }
-  //    void cancel() { uvcc::}
+  void cancel() { uvcc::expr_throws(uv_cancel(_someRaw()), true); }
 
   std::size_t size() const _NOEXCEPT {
-    return uv_req_size(_someRequest()->type);
+    return _validateType() ? uv_req_size(_someRaw()->type) : 0;
   }
 
   template <typename T>
   const std::unique_ptr<const T> data() const _NOEXCEPT {
-    return uv_req_get_data(_someRequest());
+    return uv_req_get_data(_someRaw());
   }
 
   template <typename T>
   std::unique_ptr<const T> setData(std::unique_ptr<T> data) _NOEXCEPT {
-    return uv_req_set_data(_someRequest(), data);
+    return uv_req_set_data(_someRaw(), data);
   }
 
-  virtual const Type &type() const _NOEXCEPT { return req_type_; }
+  virtual TransmitType type() const _NOEXCEPT {
+    return _type(_someRaw()->type);
+  }
 
   virtual const std::string typeName() const _NOEXCEPT {
-    return std::string(uv_req_type_name(_someRequest()->type));
+    return std::string(uv_req_type_name(_someRaw()->type));
   }
 
-  // protected:
-  //  std::unique_ptr<Storage> req_;
-
-  //  inline uv_req_t *_someRequest() const _NOEXCEPT {
-  //    switch (req_type_) {
-  //      case Type::kDefault:
-  //      default:
-  //        return reinterpret_cast<uv_req_t *>(&req_->req);
-  //    }
-  //  }
+ protected:
+  inline virtual bool _validateType() const _NOEXCEPT {
+    return _someRaw()->type > UV_UNKNOWN_REQ &&
+           _someRaw()->type < UV_REQ_TYPE_MAX;
+  }
 
  private:
-  inline BaseRawRequestType *_someRaw() const _NOEXCEPT {
-    return reinterpret_cast<BaseRawRequestType *>(raw_.get());
+  inline TransmitType _type(const uv_req_type &raw_type) const _NOEXCEPT {
+    return static_cast<TransmitType>(raw_type);
+  }
+
+  inline uv_req_type _rawType(const TransmitType &type) const _NOEXCEPT {
+    return static_cast<uv_req_type>(type);
   }
 };
 

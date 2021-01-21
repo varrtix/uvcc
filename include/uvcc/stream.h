@@ -53,16 +53,15 @@ class Stream : protected FileDescriptor {
     kTCP = UV_TCP,
     kTTY = UV_TTY,
     kNamedPipe = UV_NAMED_PIPE,
-    //    kUnknown = UV_UNKNOWN_HANDLE,
-    //    kFile = UV_FILE,
+    kFile = UV_FILE,
+    kUnknown = UV_UNKNOWN_HANDLE,
     //    kHandleTypeMax = UV_HANDLE_TYPE_MAX,
   };
 
   explicit Stream(const TransmitType &type = TransmitType::kDefault,
-                  ClosingCompletionBlock &&block = {}) _NOEXCEPT
-      : stream_type_(type) {
+                  ClosingCompletionBlock &&block = {}) _NOEXCEPT {
     closing_completion_block_ = std::move(block);
-    switch (stream_type_) {
+    switch (type) {
       case TransmitType::kTCP:
         raw_->tcp = decltype(raw_->tcp)();
         break;
@@ -73,8 +72,10 @@ class Stream : protected FileDescriptor {
         raw_->pipe = decltype(raw_->pipe)();
         break;
       case TransmitType::kDefault:
-      default:
         raw_->stream = decltype(raw_->stream)();
+        break;
+      default:
+        raw_ = uvcc::make_unique<Self>();
         break;
     }
   }
@@ -84,14 +85,41 @@ class Stream : protected FileDescriptor {
       : FileDescriptor(std::move(self), std::move(block)) {}
   Stream(Stream &&) _NOEXCEPT = default;
   Stream &operator=(Stream &&) _NOEXCEPT = default;
+  virtual ~Stream() = default;
 
-  void shutdown() {}
+  bool isReadable() const _NOEXCEPT { return uv_is_readable(_someStream()); }
+
+  bool isWritable() const _NOEXCEPT { return uv_is_writable(_someStream()); }
+
+  void setBlocking(bool enabled) {
+    uvcc::expr_throws(
+        uv_stream_set_blocking(_someStream(), static_cast<int>(enabled)), true);
+  }
+
+  std::size_t writeQueueSize() const _NOEXCEPT {
+    return uv_stream_get_write_queue_size(_someStream());
+  }
+
+ protected:
+  inline virtual bool _validateType() const _NOEXCEPT {
+    auto t = _someStream()->type;
+    return t == UV_STREAM || t == UV_TCP || t == UV_TTY || t == UV_NAMED_PIPE ||
+           t == UV_FILE;
+  }
+
+  inline auto _someStream() const _NOEXCEPT ->
+      typename std::add_pointer<StreamRawValueType>::type {
+    return reinterpret_cast<
+        typename std::add_pointer<StreamRawValueType>::type>(raw_.get());
+  }
 
  private:
-  TransmitType stream_type_;
+  inline TransmitType _type(const uv_handle_type &raw_type) const _NOEXCEPT {
+    return static_cast<TransmitType>(raw_type);
+  }
 
-  uv_stream_t *_someRaw() const _NOEXCEPT {
-    return reinterpret_cast<StreamRawValueType *>(raw_.get());
+  inline uv_handle_type _rawType(const TransmitType &type) const _NOEXCEPT {
+    return static_cast<uv_handle_type>(type);
   }
 };
 
