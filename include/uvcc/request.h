@@ -33,7 +33,7 @@
 
 namespace uvcc {
 
-class Request : protected BaseObject<uv_req_t, uv_any_req> {
+class Request : virtual protected BaseObject<uv_req_t, uv_any_req> {
  public:
   enum class TransmitType : int {
     kDefault = UV_REQ,

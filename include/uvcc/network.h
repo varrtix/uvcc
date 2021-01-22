@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <uv.h>
 
+#include "event-loop.h"
 #include "utilities.h"
 
 namespace uvcc {
@@ -50,7 +51,15 @@ typedef union {
 class Endpoint : protected BaseObject<sockaddr, AnyRawSocketEndpoint> {
  public:
   template <typename AddressType>
-  class BaseIPAddress : protected BaseObject<AddressType, AnyRawSocketAddress> {
+  class BaseIPAddress
+      : virtual protected BaseObject<AddressType, AnyRawSocketAddress> {
+   public:
+    BaseIPAddress() = default;
+    BaseIPAddress(const BaseIPAddress &) = delete;
+    BaseIPAddress(BaseIPAddress &&) _NOEXCEPT = default;
+    BaseIPAddress &operator=(const BaseIPAddress &) = delete;
+    BaseIPAddress &operator=(BaseIPAddress &&) _NOEXCEPT = default;
+    virtual ~BaseIPAddress() = default;
   };
 
   class IPv4Address : protected BaseIPAddress<struct in_addr> {
@@ -130,7 +139,7 @@ class Endpoint : protected BaseObject<sockaddr, AnyRawSocketEndpoint> {
   explicit Endpoint(const IPv4Address &address, const Port &port) {
     Endpoint(address, static_cast<std::uint16_t>(port));
   }
-  explicit Endpoint(const IPv4Address &address, const std::uint16_t port) {
+  explicit Endpoint(const IPv4Address &address, const std::uint16_t &port) {
     raw_->addr_in_4_ = decltype(raw_->addr_in_4_)();
     raw_->addr_in_4_.sin_family = AF_INET;
     raw_->addr_in_4_.sin_addr = *address._someRaw();
@@ -144,11 +153,96 @@ class Endpoint : protected BaseObject<sockaddr, AnyRawSocketEndpoint> {
   }
   Endpoint &operator=(Endpoint &&) = default;
   ~Endpoint() = default;
+
+  std::uint16_t port() const _NOEXCEPT {
+    if (_someRaw()->sa_family == AF_INET)
+      return ntohs(raw_->addr_in_4_.sin_port);
+    else
+      return 0;
+  }
+
+  std::string addrString() const _NOEXCEPT {
+    auto family = _someRaw()->sa_family;
+    if (family == AF_INET) {
+      char ip_str[INET_ADDRSTRLEN] = {0};
+      uv_inet_ntop(family, &raw_->addr_in_4_.sin_addr, ip_str, sizeof(ip_str));
+      return std::string(ip_str);
+    } else
+      return "";
+  }
 };
 
-class Listener {};
+class Parameters {
+ public:
+  class Protocol {
+   public:
+    class Options {
+     public:
+      virtual ~Options() = 0;
+    };
+    class
 
-class Connection {};
+        virtual ~Protocol() = 0;
+  };
+
+  class ProtocolTCP : virtual protected Protocol {
+   public:
+    class Options : virtual protected Protocol::Options {};
+  };
+};
+
+class Connection {
+  friend class Endpoint;
+
+ public:
+};
+
+class Listener {
+  friend class Endpoint;
+  friend class Connection;
+
+ public:
+  enum class State : int {
+    kSetup,
+    kWaiting,
+    kReady,
+    kFailed,
+    kCancelled,
+  };
+
+  Listener() = delete;
+  explicit Listener(const Parameters &params, const Endpoint::Port &port)
+      : ep_(uvcc::make_unique<Endpoint>(Endpoint::IPv4Address::any(), port)),
+        state_(State::kSetup) {}
+  explicit Listener(const Parameters &params, const std::uint16_t &port)
+      : ep_(uvcc::make_unique<Endpoint>(Endpoint::IPv4Address::any(), port)),
+        state_(State::kSetup) {}
+  Listener(const Listener &) = delete;
+  Listener(Listener &&) _NOEXCEPT = default;
+  Listener &operator=(const Listener &) = delete;
+  Listener &operator=(Listener &&) _NOEXCEPT = default;
+  ~Listener() = default;
+
+  void start(const EventLoop &loop = *EventLoop::standard()) {}
+
+  std::uint16_t port() const _NOEXCEPT { return ep_->port(); }
+
+  void cancel() {}
+
+  const EventLoop &loop() const _NOEXCEPT { return *loop_; }
+
+  Parameters *parameters() const _NOEXCEPT { return params_.get(); }
+
+  std::unique_ptr<std::function<void(const State &)>> stateUpdateHandler = 0;
+  std::unique_ptr<std::function<void(const Connection &)>>
+      newConnectionHandler = 0;
+
+ private:
+  std::unique_ptr<Endpoint> ep_;
+  std::unique_ptr<uvcc::EventLoop> loop_;
+  std::unique_ptr<Parameters> params_;
+  State state_;
+};
 
 }  // namespace network
 

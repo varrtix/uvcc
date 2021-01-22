@@ -33,7 +33,7 @@
 
 namespace uvcc {
 
-class EventLoop : protected BaseObject<uv_loop_t> {
+class EventLoop : virtual protected BaseObject<uv_loop_t> {
  protected:
   using MappingRawCompletionBlock = uvcc::RawCompletionBlock<uv_walk_cb>;
   using MappingCompletionBlock = std::function<MappingRawCompletionBlock>;

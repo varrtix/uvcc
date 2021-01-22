@@ -34,7 +34,8 @@
 
 namespace uvcc {
 
-class FileDescriptor : protected BaseObject<uv_handle_t, uv_any_handle> {
+class FileDescriptor
+    : virtual protected BaseObject<uv_handle_t, uv_any_handle> {
  protected:
   using AllocatingRawCompletionBlock = uvcc::RawCompletionBlock<uv_alloc_cb>;
   using AllocatingCompletionBlock = std::function<AllocatingRawCompletionBlock>;
