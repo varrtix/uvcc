@@ -16,7 +16,7 @@ pkg_check_modules(uv
 add_executable(${PROJECT_NAME}
     src/main.cc
     include/uvcc/network.h
-    include/uvcc/handle.h
+#    include/uvcc/handle.h
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE "include")

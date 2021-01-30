@@ -30,6 +30,7 @@
 #include <uv.h>
 
 #include <iostream>
+#include <memory>
 
 #include "exception.h"
 
@@ -130,6 +131,88 @@ enum class RunOption : int {
   kOnce = UV_RUN_ONCE,
   kNoWait = UV_RUN_NOWAIT,
 };
+
+template <typename _Tp>
+class basic_uv_object {
+public:
+    typedef _Tp element_type;
+    typedef _Tp& reference;
+    typedef const _Tp& const_reference;
+
+    basic_uv_object() _NOEXCEPT : obj_ptr_(uvcc::make_unique<element_type>()) {}
+    basic_uv_object(const basic_uv_object &) = delete;
+    basic_uv_object(basic_uv_object &&other) _NOEXCEPT {
+        *this = std::move(other);
+    }
+    basic_uv_object(element_type &&other) _NOEXCEPT : obj_ptr_(uvcc::make_unique<element_type>(other)) {}
+    basic_uv_object &operator=(const basic_uv_object &) = delete;
+    basic_uv_object &operator=(basic_uv_object &&other) _NOEXCEPT {
+        if (this != &other) {
+            obj_ptr_.reset(other.obj_ptr_.release());
+        }
+        return *this;
+    }
+    basic_uv_object &operator=(element_type &&other) _NOEXCEPT {
+        if (this->obj_ptr_.get() != &other) {
+            obj_ptr_.reset(other);
+        }
+        return *this;
+    }
+    virtual ~basic_uv_object() { obj_ptr_.release(); }
+    
+protected:
+    std::unique_ptr<element_type> obj_ptr_;
+    
+    element_type *_get() const _NOEXCEPT { return obj_ptr_.get(); }
+};
+
+template <typename _Tp, typename _Tu>
+class basic_uv_union_object: virtual protected basic_uv_object<_Tu> {
+    static_assert(std::is_union<_Tu>::value, "The template must be union type.");
+public:
+    typedef _Tp element_type;
+    typedef _Tp& reference;
+    typedef const _Tp& const_reference;
+    
+    typedef _Tu union_element_type;
+//    typedef _Tu& reference_union;
+//    typedef const _Tu& const_reference_union;
+    
+    basic_uv_union_object() _NOEXCEPT : basic_uv_object<union_element_type>() {}
+    basic_uv_union_object(const basic_uv_union_object &&) = delete;
+    basic_uv_union_object(basic_uv_union_object &&other) _NOEXCEPT {
+        *this = std::move(other);
+    }
+    basic_uv_union_object(union_element_type &&other) _NOEXCEPT : basic_uv_object<union_element_type>(other) {}
+    basic_uv_union_object &operator=(const basic_uv_union_object &) = delete;
+    basic_uv_union_object &operator=(basic_uv_union_object &&other) _NOEXCEPT {
+        if (this != &other) {
+            this->obj_ptr_.reset(other.obj_ptr_.release());
+        }
+        return *this;
+    }
+    basic_uv_union_object &operator=(union_element_type &&other) _NOEXCEPT {
+        if (this->obj_ptr_.get() != &other) {
+            this->obj_ptr_.reset(other);
+        }
+        return *this;
+    }
+    
+protected:
+    virtual element_type *_get() const _NOEXCEPT = 0;
+};
+
+class basic_fd: public basic_uv_union_object<uv_handle_t, uv_any_handle> {
+public:
+    basic_fd() {}
+    ~basic_fd() { std::cout << "basic fd" << std::endl; }
+    
+    element_type *_get() const _NOEXCEPT { return reinterpret_cast<element_type *>(_get()); }
+};
+
+class stream_fd: public basic_uv_union_object<uv_stream_t, uv_any_handle> {};
+
+class tcp_fd: public basic_uv_union_object<uv_tcp_t, uv_any_handle> {};
 
 template <typename Type, typename UnionType = void,
           typename std::enable_if<std::is_union<UnionType>::value ||

@@ -1,8 +1,8 @@
-#include <uvcc/event-loop.h>
-#include <uvcc/file-descriptor.h>
-#include <uvcc/network.h>
-#include <uvcc/request.h>
-#include <uvcc/stream.h>
+//#include <uvcc/event-loop.h>
+//#include <uvcc/file-descriptor.h>
+//#include <uvcc/network.h>
+//#include <uvcc/request.h>
+//#include <uvcc/stream.h>
 #include <uvcc/utilities.h>
 
 #include <iostream>
@@ -92,22 +92,25 @@ void on_new_connection(uv_stream_t *server, int status) {
 }
 
 int main() {
-  auto any = uvcc::network::Endpoint::IPv4Address::any();
-  auto ep = uvcc::network::Endpoint(any, 2333);
+//  auto any = uvcc::network::Endpoint::IPv4Address::any();
+//  auto ep = uvcc::network::Endpoint(any, 2333);
+//    auto any = uvcc::basic_uv_object<uv_handle_t>(uv_handle_t());
+    uvcc::basic_fd fd;
 
-  loop = uv_default_loop();
+//  loop = uv_default_loop();
   //    auto loop = uvcc::EventLoop::standard();
 
-  uv_tcp_t server;
-  uv_tcp_init(loop, &server);
-
-  uv_ip4_addr("0.0.0.0", DEFAULT_PORT, &addr);
-
-  uv_tcp_bind(&server, (const struct sockaddr *)&addr, 0);
-  int r = uv_listen((uv_stream_t *)&server, DEFAULT_BACKLOG, on_new_connection);
-  if (r) {
-    fprintf(stderr, "Listen error %s\n", uv_strerror(r));
-    return 1;
-  }
-  return uv_run(loop, UV_RUN_DEFAULT);
+//  uv_tcp_t server;
+//  uv_tcp_init(loop, &server);
+//
+//  uv_ip4_addr("0.0.0.0", DEFAULT_PORT, &addr);
+//
+//  uv_tcp_bind(&server, (const struct sockaddr *)&addr, 0);
+//  int r = uv_listen((uv_stream_t *)&server, DEFAULT_BACKLOG, on_new_connection);
+//  if (r) {
+//    fprintf(stderr, "Listen error %s\n", uv_strerror(r));
+//    return 1;
+//  }
+//  return uv_run(loop, UV_RUN_DEFAULT);
+    return 0;
 }
