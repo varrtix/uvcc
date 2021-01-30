@@ -1,4 +1,4 @@
-//#include <uvcc/event-loop.h>
+#include <uvcc/event-loop.h>
 //#include <uvcc/file-descriptor.h>
 //#include <uvcc/network.h>
 //#include <uvcc/request.h>
@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <string>
+#include <memory>
 
 // int main() {
 //  auto loop = uvcc::EventLoop(std::move(*uv_default_loop()));
@@ -92,10 +93,11 @@ void on_new_connection(uv_stream_t *server, int status) {
 }
 
 int main() {
+    auto standard = uvcc::event_loop::standard();
+//    standard->get();
 //  auto any = uvcc::network::Endpoint::IPv4Address::any();
 //  auto ep = uvcc::network::Endpoint(any, 2333);
 //    auto any = uvcc::basic_uv_object<uv_handle_t>(uv_handle_t());
-    uvcc::basic_fd fd;
 
 //  loop = uv_default_loop();
   //    auto loop = uvcc::EventLoop::standard();
@@ -111,6 +113,7 @@ int main() {
 //    fprintf(stderr, "Listen error %s\n", uv_strerror(r));
 //    return 1;
 //  }
-//  return uv_run(loop, UV_RUN_DEFAULT);
+//  return uv_run(, UV_RUN_DEFAULT);
+    std::cout << "Hello world!" << std::endl;
     return 0;
 }
