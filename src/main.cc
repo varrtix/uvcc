@@ -8,6 +8,8 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include <future>
+#include <mutex>
 
 // int main() {
 //  auto loop = uvcc::EventLoop(std::move(*uv_default_loop()));
@@ -93,8 +95,10 @@ void on_new_connection(uv_stream_t *server, int status) {
 }
 
 int main() {
-    auto standard = uvcc::event_loop::standard();
-//    standard->get();
+    
+    auto standard_loop = uvcc::event_loop::standard();
+    standard_loop->run();
+
 //  auto any = uvcc::network::Endpoint::IPv4Address::any();
 //  auto ep = uvcc::network::Endpoint(any, 2333);
 //    auto any = uvcc::basic_uv_object<uv_handle_t>(uv_handle_t());
