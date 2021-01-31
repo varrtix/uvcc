@@ -360,9 +360,14 @@ private:
 event_loop *event_loop::standard_{nullptr};
 std::mutex event_loop::singleton_mutex_;
 
-class basic_fd : public basic_uv_union_object<uv_handle_t, uv_any_handle> {
+class basic_fd : virtual protected basic_uv_union_object<uv_handle_t, uv_any_handle> {
 public:
-    basic_fd() {}
+    typedef uvcc::completion_block<uv_alloc_cb>::c_type c_alloc_completion_block;
+    typedef uvcc::completion_block<uv_alloc_cb>::type alloc_completion_block;
+    typedef uvcc::completion_block<uv_close_cb>::c_type c_close_completion_block;
+    typedef uvcc::completion_block<uv_close_cb>::type close_completion_block;
+    
+    explicit basic_fd(close_completion_block &&block = {}) _NOEXCEPT {}
     ~basic_fd() { std::cout << "basic fd" << std::endl; }
     
     element_type *_get() const _NOEXCEPT {
