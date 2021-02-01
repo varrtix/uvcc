@@ -254,7 +254,8 @@ class basic_uv_object {
     // DEBUG
     std::cout << __FUNCTION__ << std::endl;
     //
-    obj_ptr_.release();
+//    obj_ptr_.release();
+      obj_ptr_.reset();
   }
 
   // protected:
@@ -316,8 +317,8 @@ class basic_uv_union_object : virtual protected basic_uv_object<_Tu> {
   basic_uv_union_object(basic_uv_union_object &&other) _NOEXCEPT {
     *this = std::move(other);
   }
-  basic_uv_union_object(union_elem_type &&other) _NOEXCEPT
-      : basic_uv_object<union_elem_type>(other) {}
+//  basic_uv_union_object(union_elem_type &&other) _NOEXCEPT
+//      : basic_uv_object<union_elem_type>(other) {}
   basic_uv_union_object &operator=(const basic_uv_union_object &) = delete;
   basic_uv_union_object &operator=(basic_uv_union_object &&other) _NOEXCEPT {
     if (this != &other) {
@@ -325,15 +326,53 @@ class basic_uv_union_object : virtual protected basic_uv_object<_Tu> {
     }
     return *this;
   }
-  basic_uv_union_object &operator=(union_elem_type &&other) _NOEXCEPT {
-    if (_elem_ptr() != &other) {
-      this->obj_ptr_.reset(&other);
-    }
-    return *this;
-  }
+//  basic_uv_union_object &operator=(union_elem_type &&other) _NOEXCEPT {
+//    if (_elem_ptr() != &other) {
+//      this->obj_ptr_.reset(&other);
+//    }
+//    return *this;
+//  }
 
   // protected:
   virtual elem_type *_elem_ptr() const _NOEXCEPT = 0;
+};
+
+
+class basic_event_loop final : protected basic_uv_object<uv_loop_t> {
+public:
+    typedef obj_type basic_type;
+
+    explicit basic_event_loop() _NOEXCEPT(false) : basic_uv_object<basic_type>() {
+        uvcc::expr_throws(uv_loop_init(_obj_ptr()));
+        _obj_ptr()->data = static_cast<void *>(this);
+    }
+    basic_event_loop(const basic_event_loop &) = delete;
+    basic_event_loop(basic_event_loop &&other) _NOEXCEPT {
+        *this = std::move(other);
+    }
+    explicit basic_event_loop(basic_type *basic_loop_ptr) _NOEXCEPT {
+    }
+    basic_event_loop &operator=(const basic_event_loop &) = delete;
+    basic_event_loop &operator=(basic_event_loop &&other) _NOEXCEPT {
+        return *this;
+    }
+    
+private:
+    bool _is_alive() const _NOEXCEPT {
+      return uvcc::expr_assert(uv_loop_alive(_obj_ptr()), true);
+    }
+
+    void _stop() _NOEXCEPT { uv_stop(_obj_ptr()); }
+    
+
+    bool _close(basic_type *basic_loop_ptr) _NOEXCEPT {
+        while (_is_alive() &&
+               basic_loop_ptr->stop_flag ==
+               static_cast<decltype(basic_loop_ptr->stop_flag)>(false)) {
+            _stop();
+        }
+        return uvcc::expr_cerr_r(uv_loop_close(basic_loop_ptr), true);
+    }
 };
 
 class event_loop final : protected basic_uv_object<uv_loop_t> {
