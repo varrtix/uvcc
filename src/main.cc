@@ -97,10 +97,18 @@ void on_new_connection(uv_stream_t *server, int status) {
 int main() {
 //  auto standard_loop = uvcc::event_loop::standard();
 //  standard_loop->run();
-  auto nloop = uvcc::event_loop();
-  nloop.run();
+  
+  auto result = uvcc::result<uvcc::event_loop>([]() -> std::unique_ptr<uvcc::event_loop> {
+    return uvcc::make_unique<uvcc::event_loop>();
+  });
+  
+  
+  if (result.as_success()) {
+    auto nl = result.success().get();
+    nl->run();
+  }
 
-  auto obj = uvcc::basic_fd<uv_udp_t>(&nloop);
+//  auto obj = uvcc::basic_fd<uv_udp_t>(&nloop);
 
   //  auto any = uvcc::network::Endpoint::IPv4Address::any();
   //  auto ep = uvcc::network::Endpoint(any, 2333);
