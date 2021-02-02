@@ -426,14 +426,6 @@ public:
     // DEBUG
     std::cout << __FUNCTION__ << std::endl;
     //
-    if (_obj_ptr() != nullptr) {
-      while (is_alive() && _obj_ptr()->stop_flag == 0) {
-        stop();
-      }
-      uvcc::expr_cerr_r(uv_loop_close(_obj_ptr()));
-//      std::cout << "event loop is closed." << std::endl;
-      printf("[%p] event_loop is closed.\n", this);
-    }
   }
   
   static event_loop *standard() _NOEXCEPT {
@@ -493,6 +485,19 @@ private:
     }
     return *this;
   }
+    
+    bool _force_close() _NOEXCEPT {
+        if (_obj_ptr() != nullptr) {
+            while (is_alive() && _obj_ptr()->stop_flag == 0) {
+                stop();
+            }
+            //      std::cout << "event loop is closed." << std::endl;
+            printf("[%p] event_loop is closed.\n", this);
+            return uvcc::expr_cerr_r(uv_loop_close(_obj_ptr()));
+        } else {
+            return false;
+        }
+    }
   
   std::size_t _obj_size() const _NOEXCEPT final { return uv_loop_size(); }
 };
