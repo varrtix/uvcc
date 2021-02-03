@@ -679,6 +679,40 @@ private:
   }
 };
 
+class shutdown final : protected basic_req<uv_shutdown_t> {
+  typedef uvcc::completion_block<uv_shutdown_cb>::c_type c_shutdown_completion_block;
+  typedef uvcc::completion_block<uv_shutdown_cb>::type shutdown_completion_block;
+  
+public:
+  typedef uvcc::completion_block<void(shutdown *, bool)> completion_block;
+  
+  explicit shutdown() _NOEXCEPT : basic_req<elem_type>() {
+    _obj_ptr()->shutdown = decltype(_obj_ptr()->shutdown)();
+    _obj_ptr()->shutdown.data = static_cast<void *>(this);
+  }
+  shutdown(const shutdown &) = delete;
+  shutdown(shutdown &&other) _NOEXCEPT { *this = std::move(other); }
+  //  shutdown(elem_type &&other_elem) _NOEXCEPT {}
+  shutdown &operator=(const shutdown &) = delete;
+    shutdown &operator=(shutdown &&other) _NOEXCEPT {
+      if (this != &other) {
+        obj_ptr_.reset(other.obj_ptr_.release());
+      }
+      return *this;
+    }
+  //  shutdown &operator=(elem_type &&other) _NOEXCEPT {
+  //
+  //  }
+  ~shutdown() {
+    // DEBUG
+    std::cout << __FUNCTION__ << std::endl;
+    //
+  }
+  
+private:
+  elem_type *_elem_ptr() const _NOEXCEPT override { return &obj_ptr_->shutdown; }
+};
+
 // class basic_stream : public basic_uv_union_object<uv_stream_t, uv_any_handle>
 // {};
 template <typename _Tp>
@@ -688,6 +722,7 @@ class basic_stream_fd : virtual protected basic_fd<_Tp> {
                 std::is_same<_Tp, uv_pipe_t>::value,
                 "The '_Tp' should be a legal uv type.");
   
+  friend class shutdown;
 public:
   typedef uvcc::completion_block<uv_read_cb>::c_type c_read_completion_block;
   typedef uvcc::completion_block<uv_read_cb>::type read_completion_block;
@@ -695,10 +730,12 @@ public:
   typedef uvcc::completion_block<uv_write_cb>::type write_completion_block;
   typedef uvcc::completion_block<uv_connect_cb>::c_type c_connect_completion_block;
   typedef uvcc::completion_block<uv_connect_cb>::type connect_completion_block;
-  typedef uvcc::completion_block<uv_shutdown_cb>::c_type c_shutdown_completion_block;
-  typedef uvcc::completion_block<uv_shutdown_cb>::type shutdown_completion_block;
   typedef uvcc::completion_block<uv_connection_cb>::c_type c_connection_completion_block;
   typedef uvcc::completion_block<uv_connection_cb>::type connection_completion_block;
+  
+  void shutdown(shutdown *shutdown_ptr) {
+//    uv_shutdown(&shutdown_ptr->obj_ptr_->shutdown, , <#uv_shutdown_cb cb#>);
+  }
 };
 
 // class tcp_fd : public basic_uv_union_object<uv_tcp_t, uv_any_handle> {};
