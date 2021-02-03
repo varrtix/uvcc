@@ -96,19 +96,16 @@ void on_new_connection(uv_stream_t *server, int status) {
 }
 
 int main() {
-//  auto standard_loop = uvcc::event_loop::standard();
-//  standard_loop->run();
+  auto standard_loop = uvcc::event_loop::standard();
+  standard_loop->run();
   
-  auto result = uvcc::result<uvcc::event_loop>([]() -> std::unique_ptr<uvcc::event_loop> {
-    return uvcc::make_unique<uvcc::event_loop>();
-  });
+
   
-  
-  if (result.as_success()) {
-    auto nl = result.success().get();
-    nl->run();
-  }
-  
+//  if (result.as_success()) {
+//    auto nl = result.success().get();
+//    nl->run();
+//  }
+
   auto ex = uvcc::exception(-2);
   std::cout << ex.debug_description() << std::endl;
 
