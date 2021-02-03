@@ -30,28 +30,32 @@
 #include <uv.h>
 
 #include <exception>
+#include <string>
+#include <memory>
 
 namespace uvcc {
 
-class Exception : public std::exception {
+class exception final : public std::exception {
  public:
-  explicit Exception(const int &error_code) _NOEXCEPT
-      : error_code_(error_code) {}
+  explicit exception(const int &error_code) _NOEXCEPT
+      : error_code_(error_code),
+        error_name_(uv_err_name(error_code)),
+        description_(uv_strerror(error_code)),
+        debug_description_(error_name_ + ": " + description_) {}
 
-  Exception(const Exception &) = default;
+  const char *what() const _NOEXCEPT { return description_.c_str(); }
 
-  Exception &operator=(const Exception &) = default;
-
-  const char *what() const _NOEXCEPT { return uv_strerror(error_code_); }
-
-  virtual const char *code() const _NOEXCEPT {
-    return uv_err_name(error_code_);
+  const char *debug_description() const _NOEXCEPT {
+    return debug_description_.c_str();
   }
 
-  virtual const int &rawCode() const _NOEXCEPT { return error_code_; }
+  const int &code() const _NOEXCEPT { return error_code_; }
 
  private:
   int error_code_;
+  std::string error_name_;
+  std::string description_;
+  std::string debug_description_;
 };
 
 }  // namespace uvcc

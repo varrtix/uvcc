@@ -1,9 +1,10 @@
 #include <uvcc/event-loop.h>
-//#include <uvcc/file-descriptor.h>
+#include <uvcc/file-descriptor.h>
 //#include <uvcc/network.h>
 //#include <uvcc/request.h>
 //#include <uvcc/stream.h>
 #include <uvcc/utilities.h>
+#include <uvcc/exception.h>
 
 #include <future>
 #include <iostream>
@@ -107,6 +108,9 @@ int main() {
     auto nl = result.success().get();
     nl->run();
   }
+  
+  auto ex = uvcc::exception(-2);
+  std::cout << ex.debug_description() << std::endl;
 
 //  auto obj = uvcc::basic_fd<uv_udp_t>(&nloop);
 

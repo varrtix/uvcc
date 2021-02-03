@@ -174,18 +174,18 @@ inline bool expr_assert(int err, bool abs = false) _NOEXCEPT {
   return abs ? (err == 0) : (err >= 0);
 }
 
-inline void expr_cerr(const uvcc::Exception &exception) _NOEXCEPT {
+inline void expr_cerr(const uvcc::exception &exception) _NOEXCEPT {
   std::cerr << "uvcc error: " << exception.what() << std::endl;
 }
 
 inline bool expr_cerr_r(int err, bool abs = false) _NOEXCEPT {
   if (expr_assert(err, abs)) return true;
-  expr_cerr(uvcc::Exception(err));
+  expr_cerr(uvcc::exception(err));
   return false;
 }
 
 inline void expr_throws(int err, bool abs = false) {
-  if (!expr_assert(err, abs)) throw uvcc::Exception(err);
+  if (!expr_assert(err, abs)) throw uvcc::exception(err);
 }
 
 // enum class LoopOption : int {
@@ -426,6 +426,7 @@ public:
     // DEBUG
     std::cout << __FUNCTION__ << std::endl;
     //
+    _force_close();
   }
   
   static event_loop *standard() _NOEXCEPT {
@@ -507,7 +508,8 @@ std::mutex event_loop::default_loop_mutex_;
 
 template <typename _Tp>
 class basic_fd : virtual protected basic_uv_union_object<_Tp, uv_any_handle> {
-  static_assert(std::is_same<_Tp, uv_stream_t>::value ||
+//  static_assert(std::is_same<_Tp, uv_stream_t>::value ||
+  static_assert(
                 std::is_same<_Tp, uv_async_t>::value ||
                 std::is_same<_Tp, uv_check_t>::value ||
                 std::is_same<_Tp, uv_fs_event_t>::value ||
@@ -518,18 +520,22 @@ class basic_fd : virtual protected basic_uv_union_object<_Tp, uv_any_handle> {
                 std::is_same<_Tp, uv_process_t>::value ||
                 std::is_same<_Tp, uv_timer_t>::value ||
                 std::is_same<_Tp, uv_udp_t>::value ||
-                std::is_same<_Tp, uv_signal_t>::value,
-                "The '_Tp' should be a legal uv type.");
+                std::is_same<_Tp, uv_signal_t>::value ||
+                // stream type
+                std::is_same<_Tp, uv_tcp_t>::value ||
+                std::is_same<_Tp, uv_tty_t>::value ||
+                std::is_same<_Tp, uv_pipe_t>::value,
+                "The '_Tp' should be a legal uv handle type.");
   
   //  elem_type *_elem_ptr() const _NOEXCEPT final {
   //    return &_obj_ptr()->handle;
   //  }
-  friend class event_loop;
+//  friend class event_loop;
   
 public:
   typedef _Tp elem_type;
-  typedef _Tp &elem_reference;
-  typedef const _Tp &const_elem_reference;
+  typedef _Tp & elem_reference;
+  typedef const _Tp & const_elem_reference;
   
   typedef uvcc::completion_block<uv_alloc_cb>::c_type c_alloc_completion_block;
   typedef uvcc::completion_block<uv_alloc_cb>::type alloc_completion_block;
@@ -552,21 +558,23 @@ public:
     return !uvcc::expr_assert(uv_has_ref(_basic_ptr()), true);
   }
   
-  event_loop *loop() _NOEXCEPT {}
+//  event_loop *loop() _NOEXCEPT { return loop_ptr_.get(); }
+  const event_loop **loop() _NOEXCEPT { return loop_p_ptr_.get(); }
   
-  // protected:
+protected:
+  friend class event_loop;
+  
   typedef uv_handle_t basic_type;
   typedef uv_any_handle union_type;
   
-  typedef basic_type &basic_reference;
-  typedef const basic_type &const_basic_reference;
+  typedef basic_type & basic_reference;
+  typedef const basic_type & const_basic_reference;
   
-  explicit basic_fd(event_loop *loop,
+  explicit basic_fd(const event_loop * const loop,
                     close_completion_block &&block = {}) _NOEXCEPT
   : basic_uv_union_object<elem_type, union_type>(),
-  close_completion_block_ptr_(
-                              uvcc::make_unique<close_completion_block>(std::move(block))) {
-    this->loop_ptr_.reset(loop);
+  close_completion_block_ptr_(uvcc::make_unique<close_completion_block>(std::move(block))) {
+    this->loop_p_ptr_.reset(&loop);
   }
   basic_fd(const basic_fd &) = delete;
   basic_fd(basic_fd &&other) _NOEXCEPT { *this = std::move(other); }
@@ -580,6 +588,8 @@ public:
   virtual ~basic_fd() {
     // DEBUG
     std::cout << __FUNCTION__ << std::endl;
+    //
+    _force_close();
   }
   
   virtual elem_type *_elem_ptr() const _NOEXCEPT {
@@ -592,27 +602,104 @@ public:
   
   // protected:
   std::unique_ptr<close_completion_block> close_completion_block_ptr_;
-  std::unique_ptr<event_loop> loop_ptr_;
+  std::unique_ptr<event_loop *> loop_p_ptr_;
+
+private:
+  void _force_close() _NOEXCEPT {
+    if (_basic_ptr() != nullptr && !is_closing()) {
+      uv_close(_basic_ptr(), close_completion_block_ptr_ ?
+               close_completion_block_ptr_->target<c_close_completion_block>() :
+               nullptr);
+      this->obj_ptr_.reset();
+    }
+  }
+  
+  virtual std::size_t _obj_size() const _NOEXCEPT {
+    return uv_handle_size(uv_handle_type::UV_HANDLE);
+  }
+};
+
+template <typename _Tp>
+class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
+  static_assert(
+                std::is_same<_Tp, uv_connect_t>::value ||
+                std::is_same<_Tp, uv_write_t>::value ||
+                std::is_same<_Tp, uv_shutdown_t>::value ||
+                std::is_same<_Tp, uv_udp_send_t>::value ||
+                std::is_same<_Tp, uv_fs_t>::value ||
+                std::is_same<_Tp, uv_work_t>::value ||
+                std::is_same<_Tp, uv_getaddrinfo_t>::value ||
+                std::is_same<_Tp, uv_getnameinfo_t>::value ||
+                std::is_same<_Tp, uv_random_t>::value,
+                "The '_Tp' should be a legal uv request type.");
+  
+public:
+  typedef _Tp elem_type;
+  typedef _Tp & elem_reference;
+  typedef const _Tp & const_elem_reference;
+  
+  void cancel() _NOEXCEPT(false) {
+    uvcc::expr_throws(uv_cancel(_basic_ptr()), true);
+  }
+
+protected:
+  typedef uv_req_t basic_type;
+  typedef uv_any_req union_type;
+  
+  typedef basic_type & basic_reference;
+  typedef const basic_type & const_basic_reference;
+  
+  explicit basic_req() _NOEXCEPT : basic_uv_union_object<elem_type, union_type>() {}
+  basic_req(const basic_req &) = delete;
+  basic_req(basic_req &&other) _NOEXCEPT { *this = std::move(other); }
+  basic_req &operator=(const basic_req &) = delete;
+  basic_req &operator=(basic_req &&other) _NOEXCEPT {
+    if (this != &other) {
+      this->obj_ptr_.reset(other.obj_ptr_.release());
+    }
+    return *this;
+  }
+  virtual ~basic_req() {
+    // DEBUG
+    std::cout << __FUNCTION__ << std::endl;
+    //
+  }
+  
+  virtual elem_type *_elem_ptr() const _NOEXCEPT {
+    return reinterpret_cast<elem_type *>(this->_obj_ptr());
+  }
+  
+  basic_type *_basic_ptr() const _NOEXCEPT {
+    return reinterpret_cast<basic_type *>(this->_obj_ptr());
+  }
   
 private:
   virtual std::size_t _obj_size() const _NOEXCEPT {
-    return uv_handle_size(uv_handle_type::UV_HANDLE);
+    return uv_req_size(uv_req_type::UV_REQ);
   }
 };
 
 // class basic_stream : public basic_uv_union_object<uv_stream_t, uv_any_handle>
 // {};
 template <typename _Tp>
-class basic_stream_fd : virtual protected basic_fd<uv_stream_t> {
+class basic_stream_fd : virtual protected basic_fd<_Tp> {
   static_assert(std::is_same<_Tp, uv_tcp_t>::value ||
                 std::is_same<_Tp, uv_tty_t>::value ||
                 std::is_same<_Tp, uv_pipe_t>::value,
                 "The '_Tp' should be a legal uv type.");
   
 public:
+  typedef uvcc::completion_block<uv_read_cb>::c_type c_read_completion_block;
+  typedef uvcc::completion_block<uv_read_cb>::type read_completion_block;
+  typedef uvcc::completion_block<uv_write_cb>::c_type c_write_completion_block;
+  typedef uvcc::completion_block<uv_write_cb>::type write_completion_block;
+  typedef uvcc::completion_block<uv_connect_cb>::c_type c_connect_completion_block;
+  typedef uvcc::completion_block<uv_connect_cb>::type connect_completion_block;
+  typedef uvcc::completion_block<uv_shutdown_cb>::c_type c_shutdown_completion_block;
+  typedef uvcc::completion_block<uv_shutdown_cb>::type shutdown_completion_block;
+  typedef uvcc::completion_block<uv_connection_cb>::c_type c_connection_completion_block;
+  typedef uvcc::completion_block<uv_connection_cb>::type connection_completion_block;
 };
-
-typedef basic_stream_fd<uv_stream_t> stream_fd;
 
 // class tcp_fd : public basic_uv_union_object<uv_tcp_t, uv_any_handle> {};
 class tcp_fd : protected basic_stream_fd<uv_tcp_t> {};
