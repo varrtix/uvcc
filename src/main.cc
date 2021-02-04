@@ -1,10 +1,9 @@
+#include <uvcc/basic-fd.h>
+#include <uvcc/basic-req.h>
+#include <uvcc/basic-stream.h>
 #include <uvcc/event-loop.h>
-#include <uvcc/file-descriptor.h>
-//#include <uvcc/network.h>
-//#include <uvcc/request.h>
-//#include <uvcc/stream.h>
-#include <uvcc/utilities.h>
 #include <uvcc/exception.h>
+#include <uvcc/utilities.h>
 
 #include <future>
 #include <iostream>
@@ -96,28 +95,9 @@ void on_new_connection(uv_stream_t *server, int status) {
 }
 
 int main() {
-  auto standard_loop = uvcc::event_loop::standard();
-  standard_loop->run();
-  
-
-  
-//  if (result.as_success()) {
-//    auto nl = result.success().get();
-//    nl->run();
-//  }
-
-  auto ex = uvcc::exception(-2);
-  std::cout << ex.debug_description() << std::endl;
-
-//  auto obj = uvcc::basic_fd<uv_udp_t>(&nloop);
-
-  //  auto any = uvcc::network::Endpoint::IPv4Address::any();
-  //  auto ep = uvcc::network::Endpoint(any, 2333);
-  //    auto any = uvcc::basic_uv_object<uv_handle_t>(uv_handle_t());
-
-  //  loop = uv_default_loop();
-  //    auto loop = uvcc::EventLoop::standard();
-
+  auto loop = uvcc::event_loop::standard();
+  loop->run();
+  loop->destroy();
   //  uv_tcp_t server;
   //  uv_tcp_init(loop, &server);
   //

@@ -1,6 +1,6 @@
 /// MIT License
 ///
-/// uvcc/file-desciptor.h
+/// uvcc/basic-fd.h
 /// uvcc
 ///
 /// created by varrtix on 2021/01/13.
@@ -24,23 +24,142 @@
 /// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 /// IN THE SOFTWARE.
 
-#ifndef FILEDESCRIPTOR_H
-#define FILEDESCRIPTOR_H
+#ifndef UVCC_BASIC_FD_H
+#define UVCC_BASIC_FD_H
 
-//#include <uv.h>
+#include <uv.h>
 //
-//#include "event-loop.h"
-//#include "utilities.h"
+#include "core.h"
+#include "event-loop.h"
+#include "utilities.h"
+
+namespace uvcc {
+template <typename _Tp>
+class basic_fd : virtual protected basic_uv_union_object<_Tp, uv_any_handle> {
+  //  static_assert(std::is_same<_Tp, uv_stream_t>::value ||
+  static_assert(std::is_same<_Tp, uv_async_t>::value ||
+                    std::is_same<_Tp, uv_check_t>::value ||
+                    std::is_same<_Tp, uv_fs_event_t>::value ||
+                    std::is_same<_Tp, uv_fs_poll_t>::value ||
+                    std::is_same<_Tp, uv_idle_t>::value ||
+                    std::is_same<_Tp, uv_poll_t>::value ||
+                    std::is_same<_Tp, uv_prepare_t>::value ||
+                    std::is_same<_Tp, uv_process_t>::value ||
+                    std::is_same<_Tp, uv_timer_t>::value ||
+                    std::is_same<_Tp, uv_udp_t>::value ||
+                    std::is_same<_Tp, uv_signal_t>::value ||
+                    // stream type
+                    std::is_same<_Tp, uv_tcp_t>::value ||
+                    std::is_same<_Tp, uv_tty_t>::value ||
+                    std::is_same<_Tp, uv_pipe_t>::value,
+                "The '_Tp' should be a legal uv handle type.");
+
+  //  elem_type *_elem_ptr() const _NOEXCEPT final {
+  //    return &_obj_ptr()->handle;
+  //  }
+  //  friend class event_loop;
+
+ public:
+  typedef _Tp elem_type;
+  typedef _Tp &elem_reference;
+  typedef const _Tp &const_elem_reference;
+
+  typedef uvcc::completion_block<uv_alloc_cb>::c_type c_alloc_completion_block;
+  typedef uvcc::completion_block<uv_alloc_cb>::type alloc_completion_block;
+  typedef uvcc::completion_block<uv_close_cb>::c_type c_close_completion_block;
+  typedef uvcc::completion_block<uv_close_cb>::type close_completion_block;
+
+  bool is_active() const _NOEXCEPT {
+    return !uvcc::expr_assert(uv_is_active(_basic_ptr()), true);
+  }
+
+  bool is_closing() const _NOEXCEPT {
+    return !uvcc::expr_assert(uv_is_closing(_basic_ptr()), true);
+  }
+
+  void reference() _NOEXCEPT { uv_ref(_basic_ptr()); }
+
+  void unreference() _NOEXCEPT { uv_unref(_basic_ptr()); }
+
+  bool has_reference() const _NOEXCEPT {
+    return !uvcc::expr_assert(uv_has_ref(_basic_ptr()), true);
+  }
+
+  //  event_loop *loop() _NOEXCEPT { return loop_ptr_.get(); }
+  const event_loop **loop() _NOEXCEPT { return loop_p_ptr_.get(); }
+
+ protected:
+  friend class event_loop;
+
+  typedef uv_handle_t basic_type;
+  typedef uv_any_handle union_type;
+
+  typedef basic_type &basic_reference;
+  typedef const basic_type &const_basic_reference;
+
+  explicit basic_fd(const event_loop *const loop,
+                    close_completion_block &&block = {}) _NOEXCEPT
+      : basic_uv_union_object<elem_type, union_type>(),
+        close_completion_block_ptr_(
+            uvcc::make_unique<close_completion_block>(std::move(block))) {
+    this->loop_p_ptr_.reset(&loop);
+  }
+  basic_fd(const basic_fd &) = delete;
+  basic_fd(basic_fd &&other) _NOEXCEPT { *this = std::move(other); }
+  basic_fd &operator=(const basic_fd &) = delete;
+  basic_fd &operator=(basic_fd &&other) _NOEXCEPT {
+    if (this != &other) {
+      this->obj_ptr_.reset(other.obj_ptr_.release());
+    }
+    return *this;
+  }
+  virtual ~basic_fd() {
+    // DEBUG
+    std::cout << __FUNCTION__ << std::endl;
+    //
+    _force_close();
+  }
+
+  virtual elem_type *_elem_ptr() const _NOEXCEPT {
+    return reinterpret_cast<elem_type *>(this->_obj_ptr());
+  }
+
+  basic_type *_basic_ptr() const _NOEXCEPT {
+    return reinterpret_cast<basic_type *>(this->_obj_ptr());
+  }
+
+  // protected:
+  std::unique_ptr<close_completion_block> close_completion_block_ptr_;
+  std::unique_ptr<event_loop *> loop_p_ptr_;
+
+ private:
+  void _force_close() _NOEXCEPT {
+    if (_basic_ptr() != nullptr && !is_closing()) {
+      uv_close(
+          _basic_ptr(),
+          close_completion_block_ptr_
+              ? close_completion_block_ptr_->target<c_close_completion_block>()
+              : nullptr);
+      this->obj_ptr_.reset();
+    }
+  }
+
+  virtual std::size_t _obj_size() const _NOEXCEPT {
+    return uv_handle_size(uv_handle_type::UV_HANDLE);
+  }
+};
+}  // namespace uvcc
 //
-//namespace uvcc {
+// namespace uvcc {
 //
-//class FileDescriptor
+// class FileDescriptor
 //    : virtual protected BaseObject<uv_handle_t, uv_any_handle> {
 // protected:
 //  using AllocatingRawCompletionBlock = uvcc::RawCompletionBlock<uv_alloc_cb>;
-//  using AllocatingCompletionBlock = std::function<AllocatingRawCompletionBlock>;
-//  using ClosingRawCompletionBlock = uvcc::RawCompletionBlock<uv_close_cb>;
-//  using ClosingCompletionBlock = std::function<ClosingRawCompletionBlock>;
+//  using AllocatingCompletionBlock =
+//  std::function<AllocatingRawCompletionBlock>; using ClosingRawCompletionBlock
+//  = uvcc::RawCompletionBlock<uv_close_cb>; using ClosingCompletionBlock =
+//  std::function<ClosingRawCompletionBlock>;
 //
 // public:
 //  enum class TransmitType : int {
@@ -190,4 +309,4 @@
 //
 //}  // namespace uvcc
 
-#endif  // FILEDESCRIPTOR_H
+#endif  // UVCC_BASIC_FD_H
