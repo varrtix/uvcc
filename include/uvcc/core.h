@@ -100,7 +100,6 @@ class basic_uv_object {
     return *this;
   }
   virtual ~basic_uv_object() _NOEXCEPT {
-
 #ifdef DEBUG
     uvcc::log::debug(this, __PRETTY_FUNCTION__).print();
 #endif

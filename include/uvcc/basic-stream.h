@@ -156,13 +156,14 @@ class basic_stream_fd : virtual protected basic_fd<_Tp> {
   typedef uvcc::completion_block<uv_connect_cb>::type connect_completion_block;
 
   void shutdown(const shutdown &req) _NOEXCEPT(false) {
-    uvcc::expr_throws(
+//    uvcc::expr_throws(
+    uvcc::expr(
         uv_shutdown(req._elem_ptr(), _basic_stream_ptr(),
                     req.completion_block_
                         ? req.completion_block_
                               ->target<shutdown::c_shutdown_completion_block>()
-                        : nullptr),
-        true);
+                    : nullptr)).throws();
+//        true);
   }
 
   void listen(uvcc::completion_block<void(basic_fd<elem_type> *, bool)> &&block,
@@ -170,9 +171,10 @@ class basic_stream_fd : virtual protected basic_fd<_Tp> {
     connect_completion_block cb = [&block](uv_stream_t *stream, int status) {
       // TODO
     };
-    uvcc::expr_cerr_r(uv_listen(_basic_stream_ptr(), backlog,
-                                cb.target<c_connect_completion_block>()),
-                      true);
+    auto output = uvcc::expr(uv_listen(_basic_stream_ptr(), backlog,
+                         cb.target<c_connect_completion_block>()));
+    if (output.failed())
+      uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
   }
 
  protected:

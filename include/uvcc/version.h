@@ -33,7 +33,7 @@
 
 namespace uvcc {
 
-class Version {
+class version {
  public:
   static const std::string description() _NOEXCEPT {
     return uv_version_string();

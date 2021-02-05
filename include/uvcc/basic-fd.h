@@ -28,15 +28,15 @@
 #define UVCC_BASIC_FD_H
 
 #include <uv.h>
-//
+
 #include "core.h"
 #include "event-loop.h"
 #include "utilities.h"
 
 namespace uvcc {
+
 template <typename _Tp>
 class basic_fd : virtual protected basic_uv_union_object<_Tp, uv_any_handle> {
-  //  static_assert(std::is_same<_Tp, uv_stream_t>::value ||
   static_assert(std::is_same<_Tp, uv_async_t>::value ||
                     std::is_same<_Tp, uv_check_t>::value ||
                     std::is_same<_Tp, uv_fs_event_t>::value ||
@@ -54,11 +54,6 @@ class basic_fd : virtual protected basic_uv_union_object<_Tp, uv_any_handle> {
                     std::is_same<_Tp, uv_pipe_t>::value,
                 "The '_Tp' should be a legal uv handle type.");
 
-  //  elem_type *_elem_ptr() const _NOEXCEPT final {
-  //    return &_obj_ptr()->handle;
-  //  }
-  //  friend class event_loop;
-
  public:
   typedef _Tp elem_type;
   typedef _Tp &elem_reference;
@@ -70,11 +65,11 @@ class basic_fd : virtual protected basic_uv_union_object<_Tp, uv_any_handle> {
   typedef uvcc::completion_block<uv_close_cb>::type close_completion_block;
 
   bool is_active() const _NOEXCEPT {
-    return !uvcc::expr_assert(uv_is_active(_basic_ptr()), true);
+    return uvcc::expr::ne(uv_is_active(_basic_ptr())).eval();
   }
 
   bool is_closing() const _NOEXCEPT {
-    return !uvcc::expr_assert(uv_is_closing(_basic_ptr()), true);
+    return uvcc::expr::ne(uv_is_closing(_basic_ptr())).eval();
   }
 
   void reference() _NOEXCEPT { uv_ref(_basic_ptr()); }
@@ -82,7 +77,7 @@ class basic_fd : virtual protected basic_uv_union_object<_Tp, uv_any_handle> {
   void unreference() _NOEXCEPT { uv_unref(_basic_ptr()); }
 
   bool has_reference() const _NOEXCEPT {
-    return !uvcc::expr_assert(uv_has_ref(_basic_ptr()), true);
+    return uvcc::expr::ne(uv_has_ref(_basic_ptr())).eval();
   }
 
   //  event_loop *loop() _NOEXCEPT { return loop_ptr_.get(); }

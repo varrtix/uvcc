@@ -33,6 +33,7 @@
 #include "utilities.h"
 
 namespace uvcc {
+
 template <typename _Tp>
 class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
   static_assert(std::is_same<_Tp, uv_connect_t>::value ||
@@ -52,7 +53,7 @@ class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
   typedef const _Tp &const_elem_reference;
 
   void cancel() _NOEXCEPT(false) {
-    uvcc::expr_throws(uv_cancel(_basic_ptr()), true);
+    uvcc::expr(uv_cancel(_basic_ptr())).throws();
   }
 
  protected:

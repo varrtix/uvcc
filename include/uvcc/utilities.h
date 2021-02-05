@@ -31,8 +31,8 @@
 
 #include <functional>
 #include <iostream>
-#include <sstream>
 #include <memory>
+#include <sstream>
 #include <type_traits>
 
 #include "exception.h"
@@ -122,68 +122,149 @@ class result {
   std::shared_ptr<failure_type> failure_;
 };
 
-inline bool expr_assert(int err, bool abs = false) _NOEXCEPT {
-  return abs ? (err == 0) : (err >= 0);
-}
+struct expr {
+  explicit expr(const int &err) _NOEXCEPT : expr(err, ops::eq) {}
 
-inline void expr_cerr(const uvcc::exception &exception) _NOEXCEPT {
-  std::cerr << "uvcc error: " << exception.what() << std::endl;
-}
+  inline static expr eq(const int &err) _NOEXCEPT { return expr(err, ops::eq); }
+  inline static expr ne(const int &err) _NOEXCEPT { return expr(err, ops::ne); }
+  inline static expr gt(const int &err) _NOEXCEPT { return expr(err, ops::gt); }
+  inline static expr lt(const int &err) _NOEXCEPT { return expr(err, ops::lt); }
+  inline static expr ge(const int &err) _NOEXCEPT { return expr(err, ops::ge); }
+  inline static expr le(const int &err) _NOEXCEPT { return expr(err, ops::le); }
 
-inline bool expr_cerr_r(int err, bool abs = false) _NOEXCEPT {
-  if (expr_assert(err, abs)) return true;
-  expr_cerr(uvcc::exception(err));
-  return false;
-}
+  inline static expr equal(const int &err) _NOEXCEPT { return eq(err); }
+  inline static expr not_equal(const int &err) _NOEXCEPT { return ne(err); }
+  inline static expr greater_than(const int &err) _NOEXCEPT { return gt(err); }
+  inline static expr less_than(const int &err) _NOEXCEPT { return lt(err); }
+  inline static expr greater_than_or_equal(const int &err) _NOEXCEPT {
+    return ge(err);
+  }
+  inline static expr less_than_or_equal(const int &err) _NOEXCEPT {
+    return le(err);
+  }
 
-inline void expr_throws(int err, bool abs = false) {
-  if (!expr_assert(err, abs)) throw uvcc::exception(err);
-}
+  inline bool eval() const _NOEXCEPT { return eval_; }
 
-struct log {
-  inline static log info(const void *addr = nullptr, const char *des = nullptr) _NOEXCEPT {
-    return log(lv::info, addr, des);
-  }
-  inline static log debug(const void *addr, const char *des) _NOEXCEPT {
-    return log(lv::debug, addr, des);
-  }
-  inline static log warning(const void *addr, const char *des) _NOEXCEPT {
-    return log(lv::warning, addr, des);
-  }
-  inline static log error(const void *addr, const char *des) _NOEXCEPT {
-    return log(lv::error, addr, des);
-  }
-  
-  inline const std::string str() const _NOEXCEPT { return description_; }
-  
-  inline const char *c_str() const _NOEXCEPT { return description_.c_str(); }
-  
-  inline void print() const _NOEXCEPT {
-    ((level_ == lv::info || level_ == lv::debug) ? std::cout : std::cerr) << description_ << std::endl;
-  }
-  
-private:
-  enum class lv : int { info, debug, warning, error, };
-  
-  std::string description_;
-  
-  lv level_;
-  
-  log(const lv &level, const void *addr, const char *des) _NOEXCEPT : description_(format_str(level, addr, des)), level_(level) {}
+  inline bool failed() const _NOEXCEPT { return !eval_; };
 
-  inline static const char *lv_str(const lv &level) _NOEXCEPT {
-    switch(level) {
-      case lv::info: return "info";
-      case lv::debug: return "debug";
-      case lv::warning: return "warning";
-      case lv::error: return "error";
-      default: return "";
+  inline expr &throws() _NOEXCEPT(false) {
+    if (failed() && calc(ops::ne, err_)) throw uvcc::exception(err_);
+    return *this;
+  }
+
+  inline const std::string str() const _NOEXCEPT {
+    return (failed() && calc(ops::ne, err_))
+               ? uvcc::exception(err_).description()
+               : "";
+  }
+
+ private:
+  enum class ops : int {
+    eq,
+    ne,
+    gt,
+    lt,
+    ge,
+    le,
+  };
+
+  int err_;
+
+  bool eval_;
+
+  expr(const int &err, const ops &sign) _NOEXCEPT : err_(err),
+                                                    eval_(calc(sign, err)) {}
+
+  inline static bool calc(const ops &sign, const int &err) _NOEXCEPT {
+    switch (sign) {
+      case ops::eq:
+        return err == 0;
+      case ops::ne:
+        return err != 0;
+      case ops::gt:
+        return err > 0;
+      case ops::lt:
+        return err < 0;
+      case ops::ge:
+        return err >= 0;
+      case ops::le:
+        return err <= 0;
+      default:
+        return false;
     }
   }
-  
-  inline static std::string format_str(const lv &level, const void *addr, const char *des) _NOEXCEPT {
+};
+
+struct log {
+  inline static log info(const void *addr = nullptr,
+                         const char *des = nullptr) _NOEXCEPT {
+    return log(lv::info, addr, des);
+  }
+  inline static log debug(const void *addr = nullptr,
+                          const char *des = nullptr) _NOEXCEPT {
+    return log(lv::debug, addr, des);
+  }
+  inline static log warning(const void *addr = nullptr,
+                            const char *des = nullptr) _NOEXCEPT {
+    return log(lv::warning, addr, des);
+  }
+  inline static log error(const void *addr = nullptr,
+                          const char *des = nullptr) _NOEXCEPT {
+    return log(lv::error, addr, des);
+  }
+
+  inline const std::string str() const _NOEXCEPT { return description_; }
+
+  inline void print() const _NOEXCEPT { print(nullptr); }
+
+  inline void print(const char *cmt) const _NOEXCEPT {
+    ((level_ == lv::info || level_ == lv::debug) ? std::cout : std::cerr)
+        << (cmt == nullptr ? description_
+                           : (description_ + "\ndetails >> " + cmt))
+        << std::endl;
+  }
+
+  inline void print(const std::string &cmt) const _NOEXCEPT {
+    print(cmt.empty() ? nullptr : cmt.c_str());
+  }
+
+ private:
+  enum class lv : int {
+    info,
+    debug,
+    warning,
+    error,
+  };
+
+  std::string description_;
+
+  lv level_;
+
+  log(const lv &level, const void *addr, const char *des) _NOEXCEPT
+      : description_(format_str(level, addr, des)),
+        level_(level) {}
+
+  inline static const char *lv_str(const lv &level) _NOEXCEPT {
+    switch (level) {
+      case lv::info:
+        return "info";
+      case lv::debug:
+        return "debug";
+      case lv::warning:
+        return "warning";
+      case lv::error:
+        return "error";
+      default:
+        return "";
+    }
+  }
+
+  inline static std::string format_str(const lv &level, const void *addr,
+                                       const char *des) _NOEXCEPT {
     std::stringstream s;
-    s << "[" << (addr << "] uvcc "<< lv_str(level) << ": " << (des == nullptr ? "<unknown>" : des);
+    (addr == nullptr ? s : s << "[" << addr << "] ")
+        << "uvcc " << lv_str(level) << ": "
+        << (des == nullptr ? "<unknown>" : des);
     return s.str();
   }
 };

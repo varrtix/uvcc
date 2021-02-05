@@ -53,7 +53,7 @@ class event_loop final : protected basic_uv_object<uv_loop_t> {
   };
 
   event_loop() _NOEXCEPT(false) : basic_uv_object<obj_type>() {
-    uvcc::expr_throws(uv_loop_init(_obj_ptr()));
+    uvcc::expr(uv_loop_init(_obj_ptr())).throws();
     _obj_ptr()->data = static_cast<void *>(this);
   }
   event_loop(const event_loop &) = delete;
@@ -65,7 +65,6 @@ class event_loop final : protected basic_uv_object<uv_loop_t> {
     }
     return *this;
   }
-  //  ~event_loop() _NOEXCEPT final { _force_close(); }
 
   inline static event_loop *standard() _NOEXCEPT {
     const std::lock_guard<std::mutex> lock(default_loop_mutex_);
@@ -73,9 +72,11 @@ class event_loop final : protected basic_uv_object<uv_loop_t> {
     if (default_loop_ptr_ == nullptr) try {
         default_loop_ptr_ = new event_loop();
       } catch (const uvcc::exception &ex) {
-//        std::cerr << "uvcc error: " << ex.debug_description() << std::endl;
-//        uvcc::log::warning(nullptr, ex.debug_description());
         default_loop_ptr_ = nullptr;
+#if DEBUG
+        uvcc::log::warning(nullptr, __PRETTY_FUNCTION__)
+            .print(ex.description());
+#endif
       }
 
     return default_loop_ptr_;
@@ -84,17 +85,21 @@ class event_loop final : protected basic_uv_object<uv_loop_t> {
   void destroy() _NOEXCEPT { delete this; }
 
   bool configure(const uvcc::event_loop::options &option) _NOEXCEPT {
-    return uvcc::expr_cerr_r(
-        uv_loop_configure(_obj_ptr(), uv_loop_option(option), true));
+    auto output =
+        uvcc::expr(uv_loop_configure(_obj_ptr(), uv_loop_option(option)));
+    if (output.failed())
+      uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
+
+    return output.eval();
   }
 
   void run(const uvcc::event_loop::run_mode &mode = run_mode::standard)
       _NOEXCEPT(false) {
-    uvcc::expr_throws(uv_run(_obj_ptr(), uv_run_mode(mode)));
+    uvcc::expr::ne(uv_run(_obj_ptr(), uv_run_mode(mode))).throws();
   }
 
   bool is_alive() const _NOEXCEPT {
-    return uvcc::expr_assert(uv_loop_alive(_obj_ptr()), true);
+    return uvcc::expr(uv_loop_alive(_obj_ptr())).eval();
   }
 
   void stop() _NOEXCEPT { uv_stop(_obj_ptr()); }
@@ -114,7 +119,7 @@ class event_loop final : protected basic_uv_object<uv_loop_t> {
     return *this;
   }
 
-  void fork() { uvcc::expr_throws(uv_loop_fork(_obj_ptr())); }
+  void fork() { uvcc::expr::ne(uv_loop_fork(_obj_ptr())).throws(); }
 
  private:
   static event_loop *default_loop_ptr_;
@@ -127,9 +132,15 @@ class event_loop final : protected basic_uv_object<uv_loop_t> {
       while (is_alive() && _obj_ptr()->stop_flag == 0) {
         stop();
       }
-//      printf("[%p] uvcc info: an event_loop will be closed.\n", this);
-      uvcc::log::info(nullptr, nullptr).print();
-      return uvcc::expr_cerr_r(uv_loop_close(_obj_ptr()));
+#ifdef DEBUG
+      uvcc::log::debug(this, __PRETTY_FUNCTION__)
+          .print("an event_loop will be closed.");
+#endif
+      auto output = uvcc::expr::ne(uv_loop_close(_obj_ptr()));
+      if (output.failed())
+        uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
+
+      return output.eval();
     } else {
       return false;
     }
