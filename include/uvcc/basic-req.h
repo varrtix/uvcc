@@ -29,7 +29,9 @@
 
 #include <uv.h>
 
+
 #include "core.h"
+#include "basic-stream.h"
 #include "utilities.h"
 
 namespace uvcc {
@@ -75,9 +77,9 @@ class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
     return *this;
   }
   virtual ~basic_req() {
-    // DEBUG
-    std::cout << __FUNCTION__ << std::endl;
-    //
+#ifdef DEBUG
+    uvcc::log::debug(this, __PRETTY_FUNCTION__).print();
+#endif
   }
 
   virtual elem_type *_elem_ptr() const _NOEXCEPT {
@@ -95,20 +97,22 @@ class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
 };
 
 class shutdown final : protected basic_req<uv_shutdown_t> {
+  friend class tcp_fd;
  public:
   typedef uvcc::completion_block<void(shutdown *, bool)>::type completion_block;
 
-  explicit shutdown(completion_block &&block = {}) _NOEXCEPT
+//  explicit shutdown(completion_block &&block = {}) _NOEXCEPT
+  explicit shutdown() _NOEXCEPT
       : basic_req<elem_type>() {
     _obj_ptr()->shutdown = decltype(_obj_ptr()->shutdown)();
     _obj_ptr()->shutdown.data = static_cast<void *>(this);
-    completion_block_ =
-        block ? uvcc::make_unique<shutdown_completion_block>(
-                    [&block](uv_shutdown_t *req, int status) {
-                      auto shutdown_req = uvcc::shutdown(std::move(*req));
-                      block(&shutdown_req, static_cast<bool>(!!status));
-                    })
-              : nullptr;
+//    completion_block_ =
+//        block ? uvcc::make_unique<shutdown_completion_block>(
+//                    [&block](uv_shutdown_t *req, int status) {
+//                      auto shutdown_req = uvcc::shutdown(std::move(*req));
+//                      block(&shutdown_req, static_cast<bool>(!!status));
+//                    })
+//              : nullptr;
   }
   shutdown(const shutdown &) = delete;
   shutdown(shutdown &&other) _NOEXCEPT { *this = std::move(other); }
@@ -127,9 +131,12 @@ class shutdown final : protected basic_req<uv_shutdown_t> {
     return *this;
   }
   ~shutdown() {
-    // DEBUG
-    std::cout << __FUNCTION__ << std::endl;
-    //
+#ifdef DEBUG
+    uvcc::log::debug(this, __PRETTY_FUNCTION__).print();
+#endif
+  }
+  
+  void request(tcp_fd *tcp, completion_block &&block = {}) _NOEXCEPT(false) {
   }
 
  protected:
@@ -138,7 +145,7 @@ class shutdown final : protected basic_req<uv_shutdown_t> {
   typedef uvcc::completion_block<uv_shutdown_cb>::type
       shutdown_completion_block;
 
-  std::unique_ptr<shutdown_completion_block> completion_block_;
+//  std::unique_ptr<shutdown_completion_block> completion_block_;
 
   elem_type *_elem_ptr() const _NOEXCEPT override {
     return &obj_ptr_->shutdown;

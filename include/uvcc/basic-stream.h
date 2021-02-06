@@ -34,6 +34,12 @@
 #include "utilities.h"
 
 namespace uvcc {
+/*
+ * Maximum queue length specifiable by listen.
+ * [FIX] Needs to support multi-platforms.
+ */
+static constexpr auto K_SOMAXCONN = 128;
+
 
 // class Stream : protected FileDescriptor {
 // protected:
@@ -155,24 +161,30 @@ class basic_stream_fd : virtual protected basic_fd<_Tp> {
       c_connect_completion_block;
   typedef uvcc::completion_block<uv_connect_cb>::type connect_completion_block;
 
-  void shutdown(const shutdown &req) _NOEXCEPT(false) {
-//    uvcc::expr_throws(
-    uvcc::expr(
-        uv_shutdown(req._elem_ptr(), _basic_stream_ptr(),
-                    req.completion_block_
-                        ? req.completion_block_
-                              ->target<shutdown::c_shutdown_completion_block>()
-                    : nullptr)).throws();
-//        true);
-  }
+//  void shutdown(const shutdown &req) _NOEXCEPT(false) {
+//    uvcc::expr(
+//        uv_shutdown(req._elem_ptr(), _basic_stream_ptr(),
+//                    req.completion_block_
+//                        ? req.completion_block_
+//                              ->target<shutdown::c_shutdown_completion_block>()
+//                    : nullptr)).throws();
+//  }
 
-  void listen(uvcc::completion_block<void(basic_fd<elem_type> *, bool)> &&block,
-              int backlog) _NOEXCEPT {
+//  void listen(uvcc::completion_block<void(basic_fd<elem_type> *, bool)> &&block,
+//              int backlog) _NOEXCEPT {
+//    connect_completion_block cb = [&block](uv_stream_t *stream, int status) {
+//      // TODO
+//    };
+//    auto output = uvcc::expr(uv_listen(_basic_stream_ptr(), backlog,
+//                         cb.target<c_connect_completion_block>()));
+//    if (output.failed())
+//      uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
+//  }
+  void listen(uvcc::completion_block<void(basic_stream_fd<elem_type> *, bool)> &&block, const int &backlog = K_SOMAXCONN) _NOEXCEPT(false) {
     connect_completion_block cb = [&block](uv_stream_t *stream, int status) {
-      // TODO
+      block();
     };
-    auto output = uvcc::expr(uv_listen(_basic_stream_ptr(), backlog,
-                         cb.target<c_connect_completion_block>()));
+    auto output = uvcc::expr(uv_listen(_basic_stream_ptr(), backlog, cb.target<c_connect_completion_block>()));
     if (output.failed())
       uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
   }
