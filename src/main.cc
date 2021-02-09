@@ -1,6 +1,7 @@
-#include <uvcc/basic-fd.h>
-#include <uvcc/basic-req.h>
-#include <uvcc/basic-stream.h>
+//#include <uvcc/basic-fd.h>
+#include <uvcc/core.h>
+//#include <uvcc/basic-req.h>
+//#include <uvcc/basic-stream.h>
 #include <uvcc/event-loop.h>
 #include <uvcc/exception.h>
 #include <uvcc/utilities.h>
@@ -98,6 +99,24 @@ int main() {
   auto loop = uvcc::event_loop::standard();
   loop->run();
   loop->destroy();
+
+//  auto any_h = new uv_any_handle();
+  uv_any_handle any_h;
+  any_h.tcp = uv_tcp_t();
+  any_h.tcp.data = static_cast<void *>(loop);
+//  tcp.data = static_cast<void *>(loop);
+  uv_handle_t *h;
+  h = reinterpret_cast<uv_handle_t *>(&any_h.tcp);
+  uv_tcp_t *tcp;
+  tcp = reinterpret_cast<uv_tcp_t *>(h);
+  uv_tcp_init(uv_default_loop(), tcp);
+  tcp->connection_cb = on_new_connection;
+  uv_handle_t *h2;
+  h2 = reinterpret_cast<uv_handle_t *>(tcp);
+  uv_tcp_t *tcp2;
+  tcp2 = reinterpret_cast<uv_tcp_t *>(h2);
+  std::cout << tcp2 << std::endl;
+//  std::string str;
   //  uv_tcp_t server;
   //  uv_tcp_init(loop, &server);
   //
