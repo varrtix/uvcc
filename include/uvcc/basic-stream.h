@@ -31,6 +31,7 @@
 
 //#include "file-descriptor.h"
 #include "basic-fd.h"
+#include "basic-req.h"
 //#include "core.h"
 #include "utilities.h"
 
@@ -214,6 +215,19 @@ static constexpr auto K_SOMAXCONN = 128;
 //    return reinterpret_cast<basic_stream_type *>(this->_obj_ptr());
 //  }
 class basic_stream : virtual protected basic_fd {
+  //  friend class shutdown;
+ public:
+  void shutdown(shutdown *sd, shutdown::completion_block &&block)
+      _NOEXCEPT(false) {
+    shutdown::f_shutdown_completion_block cb =
+        [this, &block](uv_shutdown_t *req, int status) {
+          block(, static_cast<bool>(status));
+        };
+    uvcc::expr(uv_shutdown(sd->_shutdown_ptr(), _stream_ptr(),
+                           cb.target<shutdown::c_shutdown_completion_block>()))
+        .throws();
+  }
+
  protected:
   virtual uv_stream_t *_stream_ptr() const _NOEXCEPT {
     return &_obj_ptr()->stream;
@@ -244,11 +258,11 @@ class tcp_fd final : protected uvcc::basic_stream {
   uv_stream_t *_stream_ptr() const _NOEXCEPT override {
     return reinterpret_cast<uv_stream_t *>(&_obj_ptr()->tcp);
   }
-  
+
   uv_handle_t *_basic_ptr() const _NOEXCEPT override {
     return reinterpret_cast<uv_handle_t *>(&_obj_ptr()->tcp);
   }
-  
+
   std::size_t _obj_size() const _NOEXCEPT override {
     return uv_handle_size(uv_handle_type::UV_TCP);
   }

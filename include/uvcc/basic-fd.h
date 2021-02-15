@@ -91,9 +91,9 @@ class basic_fd : virtual protected basic_uv_object<uv_any_handle> {
       : basic_uv_object<uv_any_handle>(),
         loop_ptr_(loop),
         close_completion_block_(std::move(block)) {
-          _obj_ptr()->handle = decltype(_obj_ptr()->handle)();
-          _obj_ptr()->handle.data = static_cast<void *>(this);
-        }
+    _obj_ptr()->handle = decltype(_obj_ptr()->handle)();
+    _obj_ptr()->handle.data = static_cast<void *>(this);
+  }
   //        close_completion_block_ptr_(
   //            uvcc::make_unique<close_completion_block>(std::move(block))) {}
   //  : basic_uv_union_object<uv_handle_t, mem_type, union_type>(),
@@ -173,8 +173,8 @@ class basic_fd : virtual protected basic_uv_object<uv_any_handle> {
  private:
   explicit basic_fd(const uv_handle_t &handle, event_loop *loop) _NOEXCEPT
       : basic_fd(loop) {
-        _obj_ptr()->handle = handle;
-        _obj_ptr()->handle.data = static_cast<void *>(this);
+    _obj_ptr()->handle = handle;
+    _obj_ptr()->handle.data = static_cast<void *>(this);
   }
 
   void _force_close() _NOEXCEPT {
