@@ -36,43 +36,48 @@
 
 namespace uvcc {
 
-template <typename _Tp>
-class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
-  static_assert(std::is_same<_Tp, uv_connect_t>::value ||
-                    std::is_same<_Tp, uv_write_t>::value ||
-                    std::is_same<_Tp, uv_shutdown_t>::value ||
-                    std::is_same<_Tp, uv_udp_send_t>::value ||
-                    std::is_same<_Tp, uv_fs_t>::value ||
-                    std::is_same<_Tp, uv_work_t>::value ||
-                    std::is_same<_Tp, uv_getaddrinfo_t>::value ||
-                    std::is_same<_Tp, uv_getnameinfo_t>::value ||
-                    std::is_same<_Tp, uv_random_t>::value,
-                "The '_Tp' should be a legal uv request type.");
+//template <typename _Tp>
+//class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
+class basic_req : virtual protected basic_uv_object<uv_any_req> {
+//  static_assert(std::is_same<_Tp, uv_connect_t>::value ||
+//                    std::is_same<_Tp, uv_write_t>::value ||
+//                    std::is_same<_Tp, uv_shutdown_t>::value ||
+//                    std::is_same<_Tp, uv_udp_send_t>::value ||
+//                    std::is_same<_Tp, uv_fs_t>::value ||
+//                    std::is_same<_Tp, uv_work_t>::value ||
+//                    std::is_same<_Tp, uv_getaddrinfo_t>::value ||
+//                    std::is_same<_Tp, uv_getnameinfo_t>::value ||
+//                    std::is_same<_Tp, uv_random_t>::value,
+//                "The '_Tp' should be a legal uv request type.");
 
  public:
-  typedef _Tp elem_type;
-  typedef _Tp &elem_reference;
-  typedef const _Tp &const_elem_reference;
+//  typedef _Tp elem_type;
+//  typedef _Tp &elem_reference;
+//  typedef const _Tp &const_elem_reference;
 
   void cancel() _NOEXCEPT(false) {
     uvcc::expr(uv_cancel(_basic_ptr())).throws();
   }
 
  protected:
-  typedef uv_req_t basic_type;
-  typedef uv_any_req union_type;
+//  typedef uv_req_t basic_type;
+//  typedef uv_any_req union_type;
 
-  typedef basic_type &basic_reference;
-  typedef const basic_type &const_basic_reference;
+//  typedef basic_type &basic_reference;
+//  typedef const basic_type &const_basic_reference;
 
-  explicit basic_req() _NOEXCEPT
-      : basic_uv_union_object<elem_type, union_type>() {}
+//  explicit basic_req() _NOEXCEPT
+//      : basic_uv_union_object<elem_type, union_type>() {}
+  basic_req() _NOEXCEPT : basic_uv_object<uv_any_req>() {
+    _obj_ptr()->req = decltype(_obj_ptr()->req)();
+    _obj_ptr()->req.data = static_cast<void *>(this);
+  }
   basic_req(const basic_req &) = delete;
   basic_req(basic_req &&other) _NOEXCEPT { *this = std::move(other); }
   basic_req &operator=(const basic_req &) = delete;
   basic_req &operator=(basic_req &&other) _NOEXCEPT {
     if (this != &other) {
-      this->obj_ptr_.reset(other.obj_ptr_.release());
+      this->obj_ptr_.reset(other._release_obj());
     }
     return *this;
   }
@@ -82,30 +87,34 @@ class basic_req : virtual protected basic_uv_union_object<_Tp, uv_any_req> {
 #endif
   }
 
-  virtual elem_type *_elem_ptr() const _NOEXCEPT {
-    return reinterpret_cast<elem_type *>(this->_obj_ptr());
-  }
+//  virtual elem_type *_elem_ptr() const _NOEXCEPT {
+//    return reinterpret_cast<elem_type *>(this->_obj_ptr());
+//  }
 
-  basic_type *_basic_ptr() const _NOEXCEPT {
-    return reinterpret_cast<basic_type *>(this->_obj_ptr());
+//  basic_type *_basic_ptr() const _NOEXCEPT {
+//    return reinterpret_cast<basic_type *>(this->_obj_ptr());
+//  }
+  virtual uv_req_t *_basic_ptr() const _NOEXCEPT {
+    return &_obj_ptr()->req;
   }
 
  private:
-  virtual std::size_t _obj_size() const _NOEXCEPT {
+  virtual std::size_t _obj_size() const _NOEXCEPT override {
     return uv_req_size(uv_req_type::UV_REQ);
   }
 };
 
-class shutdown final : protected basic_req<uv_shutdown_t> {
+//class shutdown final : protected basic_req<uv_shutdown_t> {
+class shutdown final : protected basic_req {
   friend class tcp_fd;
  public:
   typedef uvcc::completion_block<void(shutdown *, bool)>::type completion_block;
 
 //  explicit shutdown(completion_block &&block = {}) _NOEXCEPT
-  explicit shutdown() _NOEXCEPT
-      : basic_req<elem_type>() {
-    _obj_ptr()->shutdown = decltype(_obj_ptr()->shutdown)();
-    _obj_ptr()->shutdown.data = static_cast<void *>(this);
+//  explicit shutdown() _NOEXCEPT
+//      : basic_req<elem_type>() {
+//    _obj_ptr()->shutdown = decltype(_obj_ptr()->shutdown)();
+//    _obj_ptr()->shutdown.data = static_cast<void *>(this);
 //    completion_block_ =
 //        block ? uvcc::make_unique<shutdown_completion_block>(
 //                    [&block](uv_shutdown_t *req, int status) {
@@ -113,6 +122,9 @@ class shutdown final : protected basic_req<uv_shutdown_t> {
 //                      block(&shutdown_req, static_cast<bool>(!!status));
 //                    })
 //              : nullptr;
+  explicit shutdown() _NOEXCEPT : basic_req() {
+    _obj_ptr()->shutdown = decltype(_obj_ptr()->shutdown)();
+    _obj_ptr()->shutdown.data = static_cast<void *>(this);
   }
   shutdown(const shutdown &) = delete;
   shutdown(shutdown &&other) _NOEXCEPT { *this = std::move(other); }
@@ -147,9 +159,9 @@ class shutdown final : protected basic_req<uv_shutdown_t> {
 
 //  std::unique_ptr<shutdown_completion_block> completion_block_;
 
-  elem_type *_elem_ptr() const _NOEXCEPT override {
-    return &obj_ptr_->shutdown;
-  }
+//  elem_type *_elem_ptr() const _NOEXCEPT override {
+//    return &obj_ptr_->shutdown;
+//  }
 };
 
 // class Request : virtual protected BaseObject<uv_req_t, uv_any_req> {

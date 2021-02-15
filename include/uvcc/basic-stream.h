@@ -134,89 +134,102 @@ static constexpr auto K_SOMAXCONN = 128;
 //  }
 //};
 
-template <typename _Tp>
-class basic_stream_fd : virtual protected basic_fd<_Tp> {
-  static_assert(std::is_same<_Tp, uv_tcp_t>::value ||
-                    std::is_same<_Tp, uv_tty_t>::value ||
-                    std::is_same<_Tp, uv_pipe_t>::value,
-                "The '_Tp' should be a legal uv type.");
+// template <typename _Tp>
+// class basic_stream : virtual protected basic_fd {
+// class basic_stream_fd : virtual protected basic_fd<_Tp> {
+//  static_assert(std::is_same<_Tp, uv_tcp_t>::value ||
+//                    std::is_same<_Tp, uv_tty_t>::value ||
+//                    std::is_same<_Tp, uv_pipe_t>::value,
+//                "The '_Tp' should be a legal uv type.");
 
-  //  friend class shutdown;
+//  friend class shutdown;
 
-  typedef uvcc::completion_block<uv_connection_cb>::c_type
-      c_connection_completion_block;
-  typedef uvcc::completion_block<uv_connection_cb>::type
-      connection_completion_block;
+//  typedef uvcc::completion_block<uv_connection_cb>::c_type
+//      c_connection_completion_block;
+//  typedef uvcc::completion_block<uv_connection_cb>::type
+//      connection_completion_block;
 
- public:
-  typedef _Tp elem_type;
-  typedef _Tp &reference;
-  typedef const _Tp &const_reference;
+// public:
+//  typedef _Tp elem_type;
+//  typedef _Tp &reference;
+//  typedef const _Tp &const_reference;
+//
+//  typedef uvcc::completion_block<uv_read_cb>::c_type c_read_completion_block;
+//  typedef uvcc::completion_block<uv_read_cb>::type read_completion_block;
+//  typedef uvcc::completion_block<uv_write_cb>::c_type
+//  c_write_completion_block; typedef uvcc::completion_block<uv_write_cb>::type
+//  write_completion_block; typedef
+//  uvcc::completion_block<uv_connect_cb>::c_type
+//      c_connect_completion_block;
+//  typedef uvcc::completion_block<uv_connect_cb>::type
+//  connect_completion_block;
+//
+//  void shutdown(const shutdown &req) _NOEXCEPT(false) {
+//    uvcc::expr(
+//        uv_shutdown(req._elem_ptr(), _basic_stream_ptr(),
+//                    req.completion_block_
+//                        ? req.completion_block_
+//                              ->target<shutdown::c_shutdown_completion_block>()
+//                    : nullptr)).throws();
+//  }
 
-  typedef uvcc::completion_block<uv_read_cb>::c_type c_read_completion_block;
-  typedef uvcc::completion_block<uv_read_cb>::type read_completion_block;
-  typedef uvcc::completion_block<uv_write_cb>::c_type c_write_completion_block;
-  typedef uvcc::completion_block<uv_write_cb>::type write_completion_block;
-  typedef uvcc::completion_block<uv_connect_cb>::c_type
-      c_connect_completion_block;
-  typedef uvcc::completion_block<uv_connect_cb>::type connect_completion_block;
+//  void listen(uvcc::completion_block<void(basic_fd<elem_type> *, bool)>
+//  &&block,
+//              int backlog) _NOEXCEPT {
+//    connect_completion_block cb = [&block](uv_stream_t *stream, int status)
+//    {
+//      // TODO
+//    };
+//    auto output = uvcc::expr(uv_listen(_basic_stream_ptr(), backlog,
+//                         cb.target<c_connect_completion_block>()));
+//    if (output.failed())
+//      uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
+//  }
+//  void listen(uvcc::completion_block<void(uvcc::fd *, bool)> &&block,
+//              const int &backlog = K_SOMAXCONN) _NOEXCEPT(false) {
+//    this->loop_ptr_->run();
+//    connect_completion_block cb = [&block](uv_stream_t *stream, int status) {
+//      block(some_fd(stream), static_cast<bool>(status));
+//    };
+//    auto output = uvcc::expr(uv_listen(
+//        _basic_stream_ptr(), backlog,
+//        cb.target<c_connect_completion_block>()));
+//    if (output.failed())
+//      uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
+//  }
 
-  //  void shutdown(const shutdown &req) _NOEXCEPT(false) {
-  //    uvcc::expr(
-  //        uv_shutdown(req._elem_ptr(), _basic_stream_ptr(),
-  //                    req.completion_block_
-  //                        ? req.completion_block_
-  //                              ->target<shutdown::c_shutdown_completion_block>()
-  //                    : nullptr)).throws();
-  //  }
+// protected:
+//  typedef uv_stream_t basic_stream_type;
+//  typedef basic_stream_type &basic_stream_reference;
+//  typedef const basic_stream_type &const_basic_stream_reference;
 
-  //  void listen(uvcc::completion_block<void(basic_fd<elem_type> *, bool)>
-  //  &&block,
-  //              int backlog) _NOEXCEPT {
-  //    connect_completion_block cb = [&block](uv_stream_t *stream, int status)
-  //    {
-  //      // TODO
-  //    };
-  //    auto output = uvcc::expr(uv_listen(_basic_stream_ptr(), backlog,
-  //                         cb.target<c_connect_completion_block>()));
-  //    if (output.failed())
-  //      uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
-  //  }
-  void listen(uvcc::completion_block<void(uvcc::fd *, bool)> &&block,
-              const int &backlog = K_SOMAXCONN) _NOEXCEPT(false) {
-    this->loop_ptr_->run();
-    connect_completion_block cb = [&block](uv_stream_t *stream, int status) {
-      //      block(some_fd(stream), static_cast<bool>(status));
-    };
-    auto output = uvcc::expr(uv_listen(
-        _basic_stream_ptr(), backlog, cb.target<c_connect_completion_block>()));
-    if (output.failed())
-      uvcc::log::warning(this, __PRETTY_FUNCTION__).print(output.str());
-  }
+//  explicit basic_stream_fd(event_loop *loop, close_com)
+//  inline static uvcc::fd *some_fd(basic_stream_type *stream) _NOEXCEPT {}
 
+//  virtual elem_type *_elem_ptr() const _NOEXCEPT {
+//    return reinterpret_cast<elem_type *>(this->_obj_ptr());
+//  }
+
+//  basic_stream_type *_basic_stream_ptr() const _NOEXCEPT {
+//    return reinterpret_cast<basic_stream_type *>(this->_obj_ptr());
+//  }
+class basic_stream : virtual protected basic_fd {
  protected:
-  typedef uv_stream_t basic_stream_type;
-  typedef basic_stream_type &basic_stream_reference;
-  typedef const basic_stream_type &const_basic_stream_reference;
-
-  //  explicit basic_stream_fd(event_loop *loop, close_com)
-  inline static uvcc::fd *some_fd(basic_stream_type *stream) _NOEXCEPT {}
-
-  virtual elem_type *_elem_ptr() const _NOEXCEPT {
-    return reinterpret_cast<elem_type *>(this->_obj_ptr());
+  virtual uv_stream_t *_stream_ptr() const _NOEXCEPT {
+    return &_obj_ptr()->stream;
   }
 
-  basic_stream_type *_basic_stream_ptr() const _NOEXCEPT {
-    return reinterpret_cast<basic_stream_type *>(this->_obj_ptr());
+  virtual uv_handle_t *_basic_ptr() const _NOEXCEPT override {
+    return reinterpret_cast<uv_handle_t *>(_stream_ptr());
   }
 
-  virtual std::size_t _obj_size() const _NOEXCEPT {
+  virtual std::size_t _obj_size() const _NOEXCEPT override {
     return uv_handle_size(uv_handle_type::UV_STREAM);
   }
 };
 
 // class tcp_fd : public basic_uv_union_object<uv_tcp_t, uv_any_handle> {};
-class tcp_fd final : protected basic_stream_fd<uv_tcp_t> {
+class tcp_fd final : protected uvcc::basic_stream {
  public:
   //  explicit tcp_fd(uv_stream_t *stream)
 
@@ -227,6 +240,18 @@ class tcp_fd final : protected basic_stream_fd<uv_tcp_t> {
   //      block()
   //    };
   //  }
+ private:
+  uv_stream_t *_stream_ptr() const _NOEXCEPT override {
+    return reinterpret_cast<uv_stream_t *>(&_obj_ptr()->tcp);
+  }
+  
+  uv_handle_t *_basic_ptr() const _NOEXCEPT override {
+    return reinterpret_cast<uv_handle_t *>(&_obj_ptr()->tcp);
+  }
+  
+  std::size_t _obj_size() const _NOEXCEPT override {
+    return uv_handle_size(uv_handle_type::UV_TCP);
+  }
 };
 
 }  // namespace uvcc
